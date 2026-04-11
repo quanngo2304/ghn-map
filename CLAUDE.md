@@ -3,106 +3,162 @@
 ## Tổng quan
 Web app bản đồ Việt Nam hiển thị ranh giới hành chính (trước/sau sáp nhập 01/07/2025), overlay dữ liệu vận hành GHN (bưu cục, tuyến, sản lượng, nhân sự).
 
+## Deploy
+- **GitHub:** https://github.com/quanngo2304/ghn-map (public)
+- **Live:** https://quanngo2304.github.io/ghn-map/
+- **Local:** `cd ~/Projects/ghn-map && python3 -m http.server 8080`
+- **Push:** `cd ~/Projects/ghn-map && git add -A && git commit -m "message" && git push`
+
 ## Tech Stack
 - **Leaflet.js** + GeoJSON — map rendering
+- **PapaParse** — CSV parsing
 - **Single HTML app** — không cần build tool, mở local chạy được
-- Tile: OpenStreetMap (mặc định) hoặc CartoDB (sáng/tối)
+- **Base map tiles** (chuyển đổi được qua layer control góc trái):
+  - Google Maps (mặc định)
+  - Google Satellite
+  - Google Hybrid (vệ tinh + tên đường)
+  - CartoDB Light (nền sáng tối giản)
+  - OpenStreetMap
 
 ## Cấu trúc thư mục
 ```
 ghn-map/
-├── CLAUDE.md           ← File này
-├── index.html          ← App chính
+├── CLAUDE.md              ← File này
+├── .gitignore             ← Ignore data/*-raw/
+├── index.html             ← App chính (HTML + controls UI)
 ├── src/
-│   ├── map.js          ← Map core logic
-│   ├── layers.js       ← Layer management (toggle trước/sau sáp nhập, drill-down)
-│   ├── data-loader.js  ← Load GeoJSON + CSV data
-│   ├── popup.js        ← Popup content builder
-│   ├── controls.js     ← UI controls (search, filter, toggle)
-│   └── style.css       ← Styles
+│   ├── map.js             ← Toàn bộ JS logic (state, render, controls, search, filters)
+│   └── style.css          ← Styles + responsive
 ├── data/
-│   ├── sau-sap-nhap/   ← GeoJSON ranh giới sau sáp nhập (34 tỉnh)
-│   │   ├── tinh.geojson
-│   │   ├── huyen.geojson
-│   │   └── xa.geojson
-│   ├── truoc-sap-nhap/ ← GeoJSON ranh giới trước sáp nhập (63 tỉnh)
-│   │   ├── tinh.geojson
-│   │   ├── huyen.geojson
-│   │   └── xa.geojson
-│   ├── ward-data.csv       ← Thông tin phường xã (AM, bưu cục, sản lượng...)
-│   ├── post-offices.csv    ← Thông tin bưu cục + tọa độ pin
-│   └── population.csv      ← Mật độ dân cư + diện tích (research từ GSO/WorldPop)
-└── public/                 ← Static assets nếu cần
+│   ├── sau-sap-nhap/      ← GeoJSON simplified (34 tỉnh)
+│   │   ├── tinh.geojson   ← 34 features, 5MB
+│   │   └── xa.geojson     ← 3,321 features, 30MB
+│   ├── truoc-sap-nhap/    ← GeoJSON simplified (63 tỉnh)
+│   │   ├── tinh.geojson   ← 63 features, 2.4MB
+│   │   ├── huyen.geojson  ← 705 features, 4.7MB
+│   │   └── xa.geojson     ← 10,614 features, 15MB
+│   ├── sau-sap-nhap-raw/  ← Original unsimplified (GITIGNORED, local only ~700MB)
+│   ├── truoc-sap-nhap-raw/← Original unsimplified (GITIGNORED, local only ~316MB)
+│   ├── ward-data.csv      ← 10,661 tuyến bưu cục cover phường xã toàn quốc
+│   ├── post-offices.csv   ← 1,310 điểm vận hành (cleaned)
+│   ├── regions.json       ← 14 vùng GHN (shortname → fullname)
+│   └── province-regions.json ← 63 tỉnh → vùng mapping
+├── public/
+│   └── home-icon.png      ← House icon reference (Flaticon #1946436)
+└── .git/
 ```
 
 ## Data Format
 
-### ward-data.csv
+### ward-data.csv (10,661 rows — tuyến bưu cục cover phường xã)
 | Column | Type | Mô tả |
 |---|---|---|
-| ma_xa | string | Mã phường xã (key join với GeoJSON) |
+| ghn_ward_id | string | Mã phường xã GHN (primary key) |
+| ma_xa | string | Mã phường xã quốc gia (join với GeoJSON, 83% matched) |
 | ten_xa | string | Tên phường xã |
-| ma_huyen | string | Mã quận huyện |
-| ma_tinh | string | Mã tỉnh thành |
-| am_name | string | Area Manager |
-| am_phone | string | SĐT AM |
+| ghn_district_id | string | Mã quận huyện GHN |
+| ten_huyen | string | Tên quận huyện |
+| ghn_province_id | string | Mã tỉnh GHN |
+| ten_tinh | string | Tên tỉnh |
+| region | string | Vùng GHN (DSH, HNO, HCM...) |
 | buu_cuc_ma | string | Mã bưu cục phụ trách |
 | buu_cuc_ten | string | Tên bưu cục |
-| nhan_vien | string | Nhân viên chạy tuyến |
-| sl_lay | number | Sản lượng lấy (đơn/ngày) |
-| sl_giao | number | Sản lượng giao (đơn/ngày) |
-| dan_cu | number | Mật độ dân cư (người/km²) |
-| dien_tich | number | Diện tích (km²) |
-| dan_so | number | Dân số |
+| am_name | string | Area Manager (chưa có data) |
+| am_phone | string | SĐT AM (chưa có data) |
+| nhan_vien | string | Nhân viên chạy tuyến (chưa có data) |
+| sl_lay | number | Sản lượng lấy (chưa có data) |
+| sl_giao | number | Sản lượng giao (chưa có data) |
 
-### post-offices.csv
+### post-offices.csv (1,310 rows — điểm vận hành thật)
 | Column | Type | Mô tả |
 |---|---|---|
-| buu_cuc_ma | string | Mã bưu cục |
-| buu_cuc_ten | string | Tên bưu cục |
-| lat | number | Vĩ độ |
-| lng | number | Kinh độ |
-| dia_chi | string | Địa chỉ |
-| am_name | string | AM quản lý |
-| am_phone | string | SĐT AM |
-| so_nhan_vien | number | Số nhân viên |
-| so_tuyen | number | Số tuyến |
-| sl_lay_ngay | number | Sản lượng lấy/ngày |
-| sl_giao_ngay | number | Sản lượng giao/ngày |
-| phuong_xa_phu_trach | string | Danh sách mã xã (comma-separated) |
+| warehouse_id | string | Mã bưu cục GHN |
+| warehouse_name | string | Tên |
+| warehouse_address | string | Địa chỉ |
+| warehouse_category | string | buu_cuc / kho_trung_chuyen / kho_chuyen_tiep / giao_hang_nang |
+| latitude, longitude | number | Tọa độ |
+| area_manager_name | string | AM quản lý |
+| ward_name, district_name, province_name | string | Địa chỉ hành chính |
+| region, area | string | Vùng + miền |
 
-## Features
+**Nguồn gốc:** Cleaned từ file GHN internal 2,117 rows → loại bỏ điểm ảo (Sorting Crew, Ahamove, FTL, Fulfillment, Tech)
+**Filter:** Giữ lại: tên chứa "Bưu Cục" / "Kho Trung Chuyển" / "Kho Chuyển Tiếp" / "Giao Hàng Nặng", loại "Tech"
 
-### Core
-1. **Toggle trước/sau sáp nhập** — switch giữa 2 bộ ranh giới hành chính
-2. **Drill-down 3 cấp** — tỉnh → quận/huyện → phường/xã, có option chọn view tới cấp nào
-3. **Popup on click** — click vào vùng để xem thông tin chi tiết (chỉ khi click, không hover)
-4. **Pin bưu cục** — marker trên bản đồ từ post-offices.csv, click hiện popup thông tin
+## Features đã hoàn thành
 
-### Optional (toggle on/off)
-5. **Heatmap** — tô màu theo mật độ dân cư hoặc sản lượng (bật/tắt được)
-6. **Search** — tìm theo tên phường xã, bưu cục, AM
-7. **Filter** — lọc theo AM, bưu cục, khoảng sản lượng
+### Map
+- Toggle trước/sau sáp nhập (63/34 tỉnh)
+- Drill-down: tỉnh → quận/huyện → phường/xã (chọn cấp hiển thị)
+- Tô màu vùng: tự động (theo quận/huyện hoặc tỉnh) hoặc theo bưu cục
+- 5 base map layers: Google Maps/Satellite/Hybrid, CartoDB, OSM
+- Popup on click (ESC để đóng)
+- Hover highlight
+
+### Heatmap
+- Mật độ dân cư (data sẵn trong GeoJSON sau sáp nhập)
+- Sản lượng (cần data)
+- Legend với thang đo + thống kê min/avg/max
+- Toggle bật/tắt
+
+### Pin điểm vận hành
+- 1,310 điểm: 1,170 BC + 17 KTC + 24 KCT + 100 GHN
+- Icon: ngôi nhà cam (#F26522) cho KTC, ngôi nhà xanh (#00549A) cho KCT, tròn cho BC/GHN
+- Hover phóng to, click popup thông tin
+- Màu pin: theo loại hoặc theo AM (271 AM, 30 màu)
+- Toggle hiện/ẩn pin + hiện tên bưu cục
+
+### Filter
+- Lọc vùng: 14 vùng GHN, cascade xuống tỉnh
+- Lọc tỉnh: 63 tỉnh, chọn nhiều, tìm kiếm, chọn tất cả/bỏ tất cả
+- Filter áp dụng lên cả bản đồ + pin
+
+### Search
+- Tìm tất cả cấp: tỉnh, quận/huyện, phường/xã, bưu cục, AM
+- Checkbox chọn/bỏ từng kết quả + highlight vàng trên map
+- Chọn tất cả / Bỏ tất cả / Zoom đã chọn
+
+### View
+- Lưu view mặc định (localStorage): zoom, vị trí, tất cả filter/toggle
+- Reset view về mặc định
+
+### Responsive
+- Mobile: controls panel thu gọn, nút Menu toggle
+- Mobile: floating legends ẩn, heatmap legend inline trong Menu
+- Touch-friendly: nút lớn, font tối thiểu 12px
+
+## Versions
+- **v1.0**: Core map, boundaries, pins, search, heatmap, filters
+- **v2.0**: Mobile responsive, region filter, save/reset view
+- **v2.1**: Google Maps base layers, mobile fixes, GitHub Pages deploy
 
 ## GeoJSON Source
 - Tải từ gis.vn (host tại vn2000.vn/diachinh/)
-- Sau sáp nhập: 34 tỉnh, có tỉnh + phường xã
-- Trước sáp nhập: 63 tỉnh, có tỉnh + quận huyện + phường xã
-- Property key join: `ma_tinh`, `ma_huyen`, `ma_xa` trong GeoJSON properties
+- Simplified bằng mapshaper (`dp 10-15%`): 277MB → 30MB
+- Sau sáp nhập: 34 tỉnh, dữ liệu có sẵn dân số + diện tích + mật độ
+- Trước sáp nhập: 63 tỉnh, không có dữ liệu dân số
+
+## Ward matching
+- GHN dùng mã nội bộ (ghn_ward_id), GeoJSON dùng mã quốc gia (ma_xa)
+- Match bằng normalize tên: strip prefix (Xã/Phường/Huyện) + match (ward_name, district_name)
+- Kết quả: 8,894/10,661 matched (83%) — 1,767 xã mới sau sáp nhập không match được
+- GHN master data: 11,988 wards, 723 districts, 63 provinces, 14 regions
+
+## GHN Brand Colors
+- Orange: #F26522
+- Blue: #00549A
 
 ## Lưu ý khi code
-- GeoJSON file rất nặng (phường xã ~100-277MB). Cần:
-  - Simplify geometry (turf.js hoặc mapshaper) để giảm size
-  - Lazy load theo zoom level (chỉ load phường xã khi zoom sâu)
-  - Có thể tách GeoJSON theo tỉnh để load on-demand
-- CSV data load bằng PapaParse hoặc d3-dsv
-- Responsive — hoạt động trên mobile/tablet
-- Không cần backend, pure frontend
+- GeoJSON simplified nhưng vẫn nặng (xa.geojson 15-30MB) — tránh load nhiều layer cùng lúc
+- CSV load bằng PapaParse (CDN)
+- Tất cả logic nằm trong 1 file map.js — nếu quá lớn có thể tách module
+- State lưu trong object `state`, render functions: `renderLayer()`, `renderPostOffices()`
+- Pin dùng DivIcon (không phải CircleMarker) để nằm trên GeoJSON layers
 
-## Trạng thái
-- [ ] Phase 1: Map cơ bản + ranh giới + toggle trước/sau sáp nhập
-- [ ] Phase 2: Drill-down + popup
-- [ ] Phase 3: Pin bưu cục + popup bưu cục
-- [ ] Phase 4: Heatmap + search + filter
-- [ ] Phase 5: Import dữ liệu thực từ CSV
-- [ ] Phase 6: Research + import mật độ dân cư
+## Backlog
+- [ ] Import AM data vào ward-data.csv (cần file GHN)
+- [ ] Import sản lượng lấy/giao (cần file GHN)
+- [ ] Import nhân viên chạy tuyến (cần file GHN)
+- [ ] Research mật độ dân cư cho bản đồ 63 tỉnh (GSO/WorldPop)
+- [ ] Tách GeoJSON theo tỉnh để lazy load (performance)
+- [ ] Export view thành ảnh/PDF
+- [ ] 38 xã hoàn toàn không match — cần GeoJSON mới hơn từ gis.vn

@@ -1,0 +1,486 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; }
+
+#map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; }
+
+#controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.95);
+    border-radius: 8px;
+    padding: 16px;
+    width: 280px;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    font-size: 13px;
+}
+
+#controls h3 {
+    margin-bottom: 12px;
+    font-size: 16px;
+    color: #e74c3c;
+    border-bottom: 2px solid #e74c3c;
+    padding-bottom: 6px;
+}
+
+.view-btn {
+    padding: 3px 10px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.view-btn:hover { background: #e74c3c; color: #fff; border-color: #e74c3c; }
+
+.control-group {
+    margin-bottom: 12px;
+}
+
+.control-group > label {
+    display: inline-block;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.toggle-btn-group {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    min-width: 0;
+}
+
+.toggle-btn.small { font-size: 10px; padding: 4px 6px; }
+
+.toggle-btn:hover { border-color: #e74c3c; }
+
+.toggle-btn.active {
+    background: #e74c3c;
+    color: #fff;
+    border-color: #e74c3c;
+}
+
+select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+#search-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+#search-results {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-top: 4px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
+
+#search-results:empty { border: none; }
+
+.search-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.search-actions .search-count {
+    font-size: 12px;
+    color: #666;
+    margin-right: auto;
+}
+
+.search-actions a {
+    font-size: 12px;
+    color: #3498db;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.search-actions a:hover { text-decoration: underline; }
+
+.search-item {
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.search-item:hover { background: #f0f0f0; }
+
+.search-item label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: normal;
+    gap: 4px;
+}
+
+.search-item input[type=checkbox] {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.search-name { flex-shrink: 0; }
+
+.search-subtitle {
+    font-size: 12px;
+    color: #999;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-item .type-badge {
+    font-size: 12px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.type-badge.tinh { background: #3498db; }
+.type-badge.huyen { background: #2ecc71; }
+.type-badge.xa { background: #e67e22; }
+.type-badge.buucuc { background: #e74c3c; }
+
+#info-panel {
+    margin-top: 12px;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 6px;
+    border-left: 3px solid #e74c3c;
+}
+
+#info-panel h4 { margin-bottom: 6px; color: #e74c3c; }
+
+#info-panel table { width: 100%; font-size: 12px; }
+#info-panel td { padding: 2px 0; vertical-align: top; }
+#info-panel td:first-child { font-weight: 600; color: #666; width: 40%; }
+
+.close-btn {
+    margin-top: 8px;
+    padding: 4px 12px;
+    background: #eee;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.close-btn:hover { background: #ddd; }
+
+/* ============================================================
+   Legends container - bottom left, stacked vertically
+   ============================================================ */
+
+#map-legends {
+    position: absolute;
+    bottom: 20px;
+    left: 10px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 280px;
+}
+
+#map-legends > div {
+    background: rgba(255,255,255,0.95);
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    font-size: 13px;
+}
+
+#legend {
+    position: static;
+}
+
+#pin-legend-static {
+    display: none;
+}
+
+.legend-title {
+    font-weight: 700;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #333;
+}
+
+.legend-scale {
+    display: flex;
+    height: 16px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 6px 0;
+    border: 1px solid #ddd;
+}
+
+.legend-scale div {
+    position: relative;
+}
+
+.legend-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.legend-stats {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #666;
+    border-top: 1px solid #eee;
+    padding-top: 6px;
+}
+
+.legend-stats span { font-weight: 600; color: #333; }
+
+/* Pin legend items */
+.pin-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 3px 0;
+    font-size: 12px;
+}
+
+.pin-legend-icon {
+    display: inline-block;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.pin-legend-mode {
+    margin-top: 6px;
+    border-top: 1px solid #eee;
+    padding-top: 6px;
+    font-size: 12px;
+}
+
+.pin-legend-mode span { font-weight: 600; }
+
+.pin-legend-mode a {
+    text-decoration: none;
+    color: #999;
+    margin-left: 6px;
+    font-size: 12px;
+}
+
+.pin-legend-mode a.active {
+    font-weight: 700;
+    color: #3498db;
+}
+
+.pin-legend-mode a:hover { text-decoration: underline; }
+
+/* ============================================================
+   Province filter
+   ============================================================ */
+
+.province-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.province-filter-actions a {
+    font-size: 12px;
+    color: #3498db;
+    text-decoration: none;
+}
+
+.province-filter-actions a:hover { text-decoration: underline; }
+
+.filter-count {
+    font-size: 12px;
+    color: #999;
+    margin-left: auto;
+}
+
+.province-search {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.province-list {
+    max-height: 120px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.province-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+    font-size: 12px;
+    font-weight: normal;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.province-item:hover { background: #f0f0f0; }
+
+.province-item input[type=checkbox] {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   Pin shapes & labels
+   ============================================================ */
+
+.pin-shape {
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.pin-square { border-radius: 2px; }
+.pin-diamond { border-radius: 2px; transform: rotate(45deg); }
+
+.pin-hover-target {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.pin-hover-target:hover .pin-shape {
+    transform: scale(1.4);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.pin-hover-target:hover .pin-diamond {
+    transform: rotate(45deg) scale(1.4);
+}
+
+.pin-house-wrap svg {
+    transition: transform 0.15s;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+}
+
+.pin-house-wrap:hover svg {
+    transform: scale(1.3);
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+}
+
+.pin-circle {
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    transition: transform 0.15s;
+}
+
+.pin-hover-target:hover .pin-circle {
+    transform: scale(1.5);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.pin-label {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.pin-label span {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    background: rgba(255,255,255,0.85);
+    padding: 1px 3px;
+    border-radius: 2px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* ============================================================
+   Loading
+   ============================================================ */
+
+#loading {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.9);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #eee;
+    border-top-color: #e74c3c;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Leaflet popup override */
+.leaflet-popup-content { font-size: 14px; line-height: 1.5; min-width: 200px; }
+.leaflet-popup-content h4 { color: #e74c3c; margin-bottom: 6px; font-size: 15px; }
+.leaflet-popup-content table td { padding: 2px 8px 2px 0; font-size: 13px; }
+.leaflet-popup-content table td:first-child { font-weight: 600; color: #666; }
+
+@media (max-width: 600px) {
+    #controls {
+        width: calc(100% - 20px);
+        max-height: 40vh;
+        top: auto;
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+    }
+    #map-legends {
+        bottom: auto;
+        top: 10px;
+        left: 10px;
+        max-width: 200px;
+    }
+}

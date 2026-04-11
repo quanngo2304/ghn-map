@@ -468,19 +468,93 @@ select {
 .leaflet-popup-content table td { padding: 2px 8px 2px 0; font-size: 13px; }
 .leaflet-popup-content table td:first-child { font-weight: 600; color: #666; }
 
-@media (max-width: 600px) {
+/* ============================================================
+   Mobile responsive
+   ============================================================ */
+
+/* Controls panel: collapsible on mobile */
+#controls-toggle {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1001;
+    background: rgba(255,255,255,0.95);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #e74c3c;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    #controls-toggle { display: block; }
+
     #controls {
         width: calc(100% - 20px);
-        max-height: 40vh;
+        max-height: 60vh;
         top: auto;
         bottom: 10px;
         right: 10px;
         left: 10px;
+        padding: 12px;
+        transform: translateY(0);
+        transition: transform 0.3s ease, opacity 0.3s ease;
     }
+
+    #controls.collapsed {
+        transform: translateY(calc(100% + 20px));
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #controls h3 { font-size: 14px; }
+
+    .toggle-btn { padding: 8px 6px; font-size: 12px; }
+    .toggle-btn.small { font-size: 12px; padding: 6px 4px; }
+
+    select, #search-input { padding: 8px; font-size: 14px; }
+
+    .province-list { max-height: 80px; }
+
     #map-legends {
         bottom: auto;
         top: 10px;
         left: 10px;
-        max-width: 200px;
+        max-width: 180px;
     }
+
+    #map-legends > div {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+
+    .legend-title { font-size: 12px; }
+
+    /* Leaflet popup */
+    .leaflet-popup-content { min-width: 160px; font-size: 13px; }
+    .leaflet-popup-content h4 { font-size: 14px; }
+    .leaflet-popup-content table td { font-size: 12px; }
+
+    /* Pin labels smaller on mobile */
+    .pin-label span { font-size: 8px; }
+
+    /* Search results */
+    #search-results { max-height: 150px; }
+
+    /* View buttons */
+    .view-btn { padding: 5px 8px; }
+}
+
+@media (max-width: 400px) {
+    #controls {
+        max-height: 50vh;
+        padding: 10px;
+    }
+
+    .toggle-btn-group { flex-wrap: wrap; }
+    .toggle-btn { min-width: 45%; }
 }

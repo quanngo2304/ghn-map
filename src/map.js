@@ -811,6 +811,13 @@ function switchColorGroup(mode) {
     }
 }
 
+function toggleControls() {
+    const panel = document.getElementById('controls');
+    const btn = document.getElementById('controls-toggle');
+    panel.classList.toggle('collapsed');
+    btn.textContent = panel.classList.contains('collapsed') ? 'Menu' : 'Đóng';
+}
+
 function toggleHeatmap(mode) {
     state.heatmap = mode;
     document.getElementById('btn-heatmap-off').classList.toggle('active', mode === 'off');

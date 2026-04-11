@@ -468,6 +468,17 @@ select {
 .leaflet-popup-content table td { padding: 2px 8px 2px 0; font-size: 13px; }
 .leaflet-popup-content table td:first-child { font-weight: 600; color: #666; }
 
+/* Leaflet layer control */
+.leaflet-control-layers {
+    border-radius: 8px !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15) !important;
+}
+
+.leaflet-control-layers-list label {
+    font-size: 13px !important;
+    padding: 2px 0;
+}
+
 /* ============================================================
    Mobile responsive
    ============================================================ */
@@ -490,8 +501,33 @@ select {
     cursor: pointer;
 }
 
+.mobile-only { display: none; }
+
 @media (max-width: 768px) {
+    .mobile-only { display: block !important; }
     #controls-toggle { display: block; }
+
+    .leaflet-control-layers {
+        position: relative;
+        top: 0;
+    }
+
+    .leaflet-control-layers-toggle {
+        width: 40px !important;
+        height: 40px !important;
+    }
+
+    .leaflet-control-layers-list label {
+        font-size: 14px !important;
+        padding: 4px 0;
+    }
+
+    .leaflet-control-zoom a {
+        width: 36px !important;
+        height: 36px !important;
+        line-height: 36px !important;
+        font-size: 20px !important;
+    }
 
     #controls {
         width: calc(100% - 20px);
@@ -520,11 +556,9 @@ select {
 
     .province-list { max-height: 80px; }
 
+    /* Hide entire floating legends on mobile */
     #map-legends {
-        bottom: auto;
-        top: 10px;
-        left: 10px;
-        max-width: 180px;
+        display: none !important;
     }
 
     #map-legends > div {

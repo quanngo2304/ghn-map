@@ -58,10 +58,32 @@ const map = L.map('map', {
 
 L.control.zoom({ position: 'topleft' }).addTo(map);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    maxZoom: 19,
-}).addTo(map);
+// Base map layers
+const baseLayers = {
+    'Google Maps': L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: '&copy; Google Maps',
+    }),
+    'Google Satellite': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: '&copy; Google Maps',
+    }),
+    'Google Hybrid': L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: '&copy; Google Maps',
+    }),
+    'CartoDB Light': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OSM &copy; CARTO',
+    }),
+    'OSM': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap',
+    }),
+};
+
+baseLayers['Google Maps'].addTo(map);
+L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
 
 // Layers
 let activeLayer = null;
@@ -498,6 +520,8 @@ function updateLegend() {
 
     if (state.heatmap === 'off') {
         legend.style.display = 'none';
+        const mobileLegend = document.getElementById('mobile-legend-content');
+        if (mobileLegend) mobileLegend.innerHTML = '';
         return;
     }
 
@@ -540,7 +564,7 @@ function updateLegend() {
     const avg = count > 0 ? Math.round(sum / count) : 0;
     if (min === Infinity) min = 0;
 
-    content.innerHTML = `
+    const legendHtml = `
         <div class="legend-title">${title} <span style="font-weight:400;color:#999">(${unit})</span></div>
         <div class="legend-scale">
             ${colors.map(c => `<div style="flex:1;background:${c}"></div>`).join('')}
@@ -554,6 +578,11 @@ function updateLegend() {
             Cao nhất: <span>${Math.round(max).toLocaleString('vi')}</span>
         </div>
     `;
+    content.innerHTML = legendHtml;
+
+    // Also update mobile inline legend
+    const mobileLegend = document.getElementById('mobile-legend-content');
+    if (mobileLegend) mobileLegend.innerHTML = legendHtml;
 }
 
 function updatePinLegend() {

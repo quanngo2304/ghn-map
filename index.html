@@ -76,6 +76,13 @@
                 <input type="checkbox" id="chk-labels" onchange="toggleLabels(this.checked)" />
                 Hiện tên
             </label>
+            <div style="margin-top:4px">
+                <label style="font-weight:400;font-size:12px">Màu pin:</label>
+                <div class="toggle-btn-group" style="margin-top:2px">
+                    <button id="btn-pin-category" class="toggle-btn small active" onclick="switchPinColor('category')">Theo loại</button>
+                    <button id="btn-pin-am" class="toggle-btn small" onclick="switchPinColor('am')">Theo AM</button>
+                </div>
+            </div>
         </div>
 
         <!-- Region filter -->

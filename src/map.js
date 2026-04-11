@@ -625,6 +625,9 @@ function updatePinLegend() {
 
 function switchPinColor(mode) {
     state.pinColorMode = mode;
+    // Update both legend and controls toggle buttons
+    document.getElementById('btn-pin-category').classList.toggle('active', mode === 'category');
+    document.getElementById('btn-pin-am').classList.toggle('active', mode === 'am');
     renderPostOffices();
 }
 

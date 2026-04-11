@@ -104,8 +104,9 @@ ghn-map/
 - 1,310 điểm: 1,170 BC + 17 KTC + 24 KCT + 100 GHN
 - Icon: ngôi nhà cam (#F26522) cho KTC, ngôi nhà xanh (#00549A) cho KCT, tròn cho BC/GHN
 - Hover phóng to, click popup thông tin
-- Màu pin: theo loại hoặc theo AM (271 AM, 30 màu)
+- Màu pin: dropdown chọn "Theo loại" hoặc "Theo AM" (271 AM, 30 màu)
 - Toggle hiện/ẩn pin + hiện tên bưu cục
+- Tất cả pin dùng DivIcon (không CircleMarker) để nằm trên GeoJSON layers
 
 ### Filter
 - Lọc vùng: 14 vùng GHN, cascade xuống tỉnh
@@ -127,9 +128,12 @@ ghn-map/
 - Touch-friendly: nút lớn, font tối thiểu 12px
 
 ## Versions
-- **v1.0**: Core map, boundaries, pins, search, heatmap, filters
-- **v2.0**: Mobile responsive, region filter, save/reset view
-- **v2.1**: Google Maps base layers, mobile fixes, GitHub Pages deploy
+- **v1.0** (352a307): Core map, boundaries, pins, search, heatmap, filters
+- **v2.0** (fd09878): Mobile responsive, region filter, save/reset view
+- **v2.1** (ca5d159): Google Maps base layers, mobile legend fixes
+- **v2.2** (37fc76e): CLAUDE.md full rewrite
+- **v2.3** (659d554): Pin color toggle in controls panel
+- **v2.4** (9cfb735): Pin color mode dùng dropdown select (fix mobile)
 
 ## GeoJSON Source
 - Tải từ gis.vn (host tại vn2000.vn/diachinh/)
@@ -153,6 +157,10 @@ ghn-map/
 - Tất cả logic nằm trong 1 file map.js — nếu quá lớn có thể tách module
 - State lưu trong object `state`, render functions: `renderLayer()`, `renderPostOffices()`
 - Pin dùng DivIcon (không phải CircleMarker) để nằm trên GeoJSON layers
+- Mobile: floating legends ẩn (`display:none !important`), heatmap legend inline trong controls
+- Mobile: dùng native `<select>` cho toggle thay vì button group (button toggle active class không reliable trên mobile)
+- View persistence: `localStorage` key `ghn-map-view`, load trong `init()`
+- Phường xã tô màu theo `ma_huyen` (nhóm quận/huyện) khi view cấp xã ở mode 63 tỉnh
 
 ## Backlog
 - [ ] Import AM data vào ward-data.csv (cần file GHN)

@@ -625,10 +625,11 @@ function updatePinLegend() {
 
 function switchPinColor(mode) {
     state.pinColorMode = mode;
-    // Update both legend and controls toggle buttons
-    document.getElementById('btn-pin-category').classList.toggle('active', mode === 'category');
-    document.getElementById('btn-pin-am').classList.toggle('active', mode === 'am');
-    renderPostOffices();
+    // Update controls toggle buttons
+    document.querySelectorAll('#btn-pin-category').forEach(el => el.classList.toggle('active', mode === 'category'));
+    document.querySelectorAll('#btn-pin-am').forEach(el => el.classList.toggle('active', mode === 'am'));
+    // Force style update before heavy render
+    requestAnimationFrame(() => renderPostOffices());
 }
 
 // ============================================================

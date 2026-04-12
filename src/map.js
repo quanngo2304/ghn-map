@@ -91,6 +91,7 @@ L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
 // Layers
 let activeLayer = null;
 let postOfficeLayer = null;
+let buucucBorderLayer = null;
 
 // ============================================================
 // Data loading
@@ -232,11 +233,12 @@ function getDefaultStyle(feature) {
     if (state.colorByGroup === 'buucuc' && props.ma_xa) {
         const wh = getWarehouseForWard(props.ma_xa);
         if (wh) {
+            const fill = getGroupColor('wh-' + wh);
             return {
-                fillColor: getGroupColor('wh-' + wh),
-                weight: 1,
-                opacity: 0.8,
-                color: '#fff',
+                fillColor: fill,
+                weight: 2.5,
+                opacity: 1,
+                color: fill,
                 fillOpacity: 0.4,
             };
         }
@@ -528,7 +530,60 @@ async function renderLayer() {
         }
     }).addTo(map);
 
+    // Render bưu cục group borders
+    renderBuucucBorders(filteredGeojson);
+
     updateLegend();
+}
+
+// Draw thick dark borders around groups of wards sharing the same buu_cuc
+// Uses turf.union to merge polygons so only outer boundary is drawn
+function renderBuucucBorders(geojson) {
+    if (buucucBorderLayer) {
+        map.removeLayer(buucucBorderLayer);
+        buucucBorderLayer = null;
+    }
+
+    if (state.colorByGroup !== 'buucuc' || state.level !== 'xa' || state.heatmap !== 'off') return;
+    if (!geojson || !geojson.features) return;
+    if (typeof turf === 'undefined') return;
+
+    // Group features by buu_cuc_ma
+    const groups = {};
+    geojson.features.forEach(f => {
+        const wh = getWarehouseForWard(f.properties.ma_xa);
+        if (wh) {
+            if (!groups[wh]) groups[wh] = [];
+            groups[wh].push(f);
+        }
+    });
+
+    // Merge polygons per group using turf.union, draw only outer boundary
+    const borderLayers = [];
+    Object.values(groups).forEach(features => {
+        if (features.length < 1) return;
+        try {
+            const merged = turf.union(turf.featureCollection(features));
+            if (merged) {
+                borderLayers.push(L.geoJSON(merged, {
+                    style: {
+                        fillColor: 'transparent',
+                        fillOpacity: 0,
+                        weight: 2,
+                        opacity: 0.7,
+                        color: '#444',
+                    },
+                    interactive: false,
+                }));
+            }
+        } catch (e) {
+            // Fallback: skip group if union fails (e.g. invalid geometry)
+        }
+    });
+
+    if (borderLayers.length > 0) {
+        buucucBorderLayer = L.layerGroup(borderLayers).addTo(map);
+    }
 }
 
 let labelLayer = null;
@@ -951,6 +1006,10 @@ function switchColorGroup(mode) {
     document.getElementById('btn-color-buucuc').classList.toggle('active', mode === 'buucuc');
     if (activeLayer) {
         activeLayer.setStyle(getStyle);
+        // Re-render bưu cục borders with current geojson
+        const features = [];
+        activeLayer.eachLayer(l => { if (l.feature) features.push(l.feature); });
+        renderBuucucBorders({ features });
     }
 }
 

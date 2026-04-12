@@ -12,6 +12,7 @@ Web app bản đồ Việt Nam hiển thị ranh giới hành chính (trước/s
 ## Tech Stack
 - **Leaflet.js** + GeoJSON — map rendering
 - **PapaParse** — CSV parsing
+- **Turf.js** — polygon union cho đường viền nhóm bưu cục
 - **Single HTML app** — không cần build tool, mở local chạy được
 - **Base map tiles** (chuyển đổi được qua layer control góc trái):
   - Google Maps (mặc định)
@@ -94,7 +95,7 @@ ghn-map/
 ### Map
 - Toggle trước/sau sáp nhập (63/34 tỉnh)
 - Drill-down: tỉnh → quận/huyện → phường/xã (chọn cấp hiển thị)
-- Tô màu vùng: tự động (theo quận/huyện hoặc tỉnh) hoặc theo bưu cục
+- Tô màu vùng: tự động (theo quận/huyện hoặc tỉnh) hoặc theo bưu cục (có đường viền nhóm bưu cục via turf.union)
 - 5 base map layers: Google Maps/Satellite/Hybrid, CartoDB, OSM
 - Popup on click: hiện mã quốc gia + mã GHN (ESC để đóng)
 - Hover highlight
@@ -142,7 +143,8 @@ ghn-map/
 - **v2.2** (37fc76e): CLAUDE.md full rewrite
 - **v2.3** (659d554): Pin color toggle in controls panel
 - **v2.4** (9cfb735): Pin color mode dùng dropdown select (fix mobile)
-- **v2.5**: Dân số 63 tỉnh (GSO 2019), lazy load GeoJSON theo tỉnh, mã GHN trong popup, dynamic heatmap breaks
+- **v2.5** (6e57581): Dân số 63 tỉnh (GSO 2019), lazy load GeoJSON theo tỉnh, mã GHN trong popup, dynamic heatmap breaks
+- **v2.6**: Đường viền nhóm bưu cục (turf.union merge polygons cùng bưu cục)
 
 ## GeoJSON Source
 - Tải từ gis.vn (host tại vn2000.vn/diachinh/)

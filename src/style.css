@@ -592,3 +592,131 @@ select {
     .toggle-btn-group { flex-wrap: wrap; }
     .toggle-btn { min-width: 45%; }
 }
+
+/* ============================================================
+   Planning Mode
+   ============================================================ */
+
+.planning-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.planning-marker-icon {
+    width: 20px;
+    height: 20px;
+    background: #e84393;
+    border: 2px solid #fff;
+    transform: rotate(45deg);
+    box-shadow: 0 0 6px rgba(232, 67, 147, 0.6);
+    animation: planning-pulse 2s ease-in-out infinite;
+}
+
+.planning-marker-selected .planning-marker-icon {
+    box-shadow: 0 0 12px rgba(232, 67, 147, 0.9);
+    border-color: #f1c40f;
+}
+
+@keyframes planning-pulse {
+    0%, 100% { box-shadow: 0 0 6px rgba(232, 67, 147, 0.4); }
+    50% { box-shadow: 0 0 14px rgba(232, 67, 147, 0.8); }
+}
+
+#planning-controls .toggle-btn.active {
+    background: #e84393;
+    color: #fff;
+}
+
+#planning-draft-list .draft-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    margin: 2px 0;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+#planning-draft-list .draft-item:hover {
+    background: #f0f0f0;
+}
+
+#planning-draft-list .draft-item.selected {
+    background: #fce4ec;
+    border-color: #e84393;
+}
+
+#planning-draft-list .draft-item .draft-color {
+    width: 10px;
+    height: 10px;
+    transform: rotate(45deg);
+    flex-shrink: 0;
+}
+
+#planning-draft-list .draft-item .draft-delete {
+    margin-left: auto;
+    color: #999;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+
+#planning-draft-list .draft-item .draft-delete:hover {
+    color: #e74c3c;
+}
+
+#planning-draft-info {
+    font-size: 11px;
+    padding: 6px;
+    background: #fafafa;
+    border-radius: 4px;
+    border: 1px solid #eee;
+}
+
+.planning-popup-form input,
+.planning-popup-form select,
+.planning-popup-form textarea {
+    width: 100%;
+    padding: 4px 6px;
+    margin: 2px 0 6px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.planning-popup-form label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #555;
+}
+
+.planning-popup-form button {
+    padding: 4px 12px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-right: 4px;
+}
+
+.planning-popup-form .btn-save {
+    background: #e84393;
+    color: #fff;
+}
+
+.planning-popup-form .btn-cancel {
+    background: #eee;
+    color: #333;
+}
+
+.map-crosshair {
+    cursor: crosshair !important;
+}
+
+.map-crosshair .leaflet-interactive {
+    cursor: crosshair !important;
+}

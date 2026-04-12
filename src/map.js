@@ -23,6 +23,13 @@ const state = {
     ghnProvinceMap: {},    // ten_tinh -> ghn_province_id
     ghnDistrictMap: {},    // "ten_huyen|ten_tinh" -> ghn_district_id
     provinceCodeMap: {},   // ten_tinh -> ma_tinh (for lazy loading)
+    planning: {
+        active: false,
+        mode: null,            // 'place' | 'assign' | 'draw'
+        draftPostOffices: [],
+        wardOverrides: {},     // ma_xa -> draft_id
+        selectedDraftId: null,
+    },
 };
 
 // GHN logo colors
@@ -222,6 +229,8 @@ function getGroupColor(code) {
 
 // Build ma_xa -> warehouse_id map for coloring by buu cuc
 function getWarehouseForWard(ma_xa) {
+    // Planning override takes priority
+    if (state.planning.wardOverrides[ma_xa]) return state.planning.wardOverrides[ma_xa];
     const wd = state.wardData[ma_xa];
     return wd ? wd.buu_cuc_ma : null;
 }
@@ -506,8 +515,14 @@ async function renderLayer() {
     activeLayer = L.geoJSON(filteredGeojson, {
         style: getStyle,
         onEachFeature: (feature, layer) => {
-            // Click popup
+            // Click popup (suppressed when planning mode active)
             layer.on('click', (e) => {
+                if (state.planning.active && state.planning.mode) {
+                    if (typeof handlePlanningFeatureClick === 'function') {
+                        handlePlanningFeatureClick(feature, layer, e);
+                    }
+                    return;
+                }
                 L.popup()
                     .setLatLng(e.latlng)
                     .setContent(buildPopup(feature.properties))
@@ -1366,6 +1381,9 @@ async function init() {
         buildProvinceFilter();
         renderPostOffices();
         updateLegend();
+
+        // Init planning module
+        if (typeof initPlanning === 'function') initPlanning();
     } catch (e) {
         console.error('Init error:', e);
     } finally {

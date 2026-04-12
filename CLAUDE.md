@@ -28,8 +28,9 @@ ghn-map/
 ├── .gitignore             ← Ignore data/*-raw/
 ├── index.html             ← App chính (HTML + controls UI)
 ├── src/
-│   ├── map.js             ← Toàn bộ JS logic (state, render, controls, search, filters)
-│   └── style.css          ← Styles + responsive
+│   ├── map.js             ← Core JS logic (state, render, controls, search, filters)
+│   ├── planning.js        ← Planning module (đặt BC nháp, gán xã, vẽ vùng, export)
+│   └── style.css          ← Styles + responsive + planning
 ├── scripts/
 │   ├── split-geojson.py   ← Tách xa.geojson theo tỉnh (ma_tinh)
 │   └── enrich-population.py ← Enrich dân số GSO 2019 vào GeoJSON 63 tỉnh
@@ -131,6 +132,17 @@ ghn-map/
 - Lưu view mặc định (localStorage): zoom, vị trí, tất cả filter/toggle
 - Reset view về mặc định
 
+### Quy hoạch bưu cục (planning mode)
+- Toggle bật/tắt chế độ quy hoạch
+- Đặt bưu cục nháp: click map → form popup (tên, loại, ghi chú) → marker magenta diamond draggable
+- Gán xã: click xã polygon → toggle assignment vào bưu cục nháp đang chọn
+- Vẽ vùng phục vụ: bán kính (km) hoặc vẽ tay polygon
+- So sánh: đường dashed + label khoảng cách đến bưu cục gần nhất (turf.distance)
+- Danh sách bưu cục nháp: chọn/xóa/zoom, panel thông tin chi tiết
+- Persistence: localStorage auto-save, export 2 CSV (draft-post-offices + ward-reassignments)
+- Logic tách riêng trong `src/planning.js`, hooks tối thiểu trong map.js
+- Ward override: `state.planning.wardOverrides[ma_xa]` → ưu tiên hơn `wardData.buu_cuc_ma`
+
 ### Responsive
 - Mobile: controls panel thu gọn, nút Menu toggle
 - Mobile: floating legends ẩn, heatmap legend inline trong Menu
@@ -144,7 +156,8 @@ ghn-map/
 - **v2.3** (659d554): Pin color toggle in controls panel
 - **v2.4** (9cfb735): Pin color mode dùng dropdown select (fix mobile)
 - **v2.5** (6e57581): Dân số 63 tỉnh (GSO 2019), lazy load GeoJSON theo tỉnh, mã GHN trong popup, dynamic heatmap breaks
-- **v2.6**: Đường viền nhóm bưu cục (turf.union merge polygons cùng bưu cục)
+- **v2.6** (e90d66f): Đường viền nhóm bưu cục (turf.union merge polygons cùng bưu cục)
+- **v3.0**: Quy hoạch bưu cục — đặt nháp, gán xã, vẽ vùng phục vụ, so sánh khoảng cách, export CSV
 
 ## GeoJSON Source
 - Tải từ gis.vn (host tại vn2000.vn/diachinh/)

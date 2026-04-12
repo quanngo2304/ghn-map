@@ -103,6 +103,33 @@
             <div id="search-results"></div>
         </div>
 
+        <!-- Planning -->
+        <div class="control-group" id="planning-section">
+            <label>Quy hoạch bưu cục</label>
+            <button id="btn-planning-toggle" class="toggle-btn" onclick="togglePlanningMode()">Bật quy hoạch</button>
+            <div id="planning-controls" style="display:none">
+                <div class="toggle-btn-group" style="margin-top:8px">
+                    <button id="btn-plan-place" class="toggle-btn" onclick="setPlanningMode('place')">Đặt BC</button>
+                    <button id="btn-plan-assign" class="toggle-btn" onclick="setPlanningMode('assign')">Gán xã</button>
+                    <button id="btn-plan-draw" class="toggle-btn" onclick="setPlanningMode('draw')">Vẽ vùng</button>
+                </div>
+                <div id="planning-draft-list" style="margin-top:8px;max-height:150px;overflow-y:auto"></div>
+                <div id="planning-draft-info" style="margin-top:6px;display:none"></div>
+                <div id="planning-draw-controls" style="margin-top:6px;display:none">
+                    <label style="font-size:11px">Bán kính (km):</label>
+                    <div style="display:flex;gap:4px;align-items:center">
+                        <input type="number" id="planning-radius" value="3" min="0.5" max="50" step="0.5" style="width:60px;padding:2px 4px;font-size:12px">
+                        <button class="toggle-btn" onclick="drawServiceRadius()" style="font-size:11px;padding:2px 6px">Vẽ bán kính</button>
+                        <button class="toggle-btn" onclick="startDrawPolygon()" id="btn-draw-polygon" style="font-size:11px;padding:2px 6px">Vẽ tay</button>
+                    </div>
+                </div>
+                <div style="margin-top:8px;display:flex;gap:4px">
+                    <button class="toggle-btn" onclick="exportPlanningCSV()" style="font-size:11px;padding:2px 6px">Xuất CSV</button>
+                    <button class="toggle-btn" onclick="clearAllDrafts()" style="font-size:11px;padding:2px 6px;color:#e74c3c">Xóa tất cả</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Info panel -->
         <div id="info-panel" style="display:none">
             <div id="info-content"></div>
@@ -129,5 +156,6 @@
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
     <script src="src/map.js"></script>
+    <script src="src/planning.js"></script>
 </body>
 </html>

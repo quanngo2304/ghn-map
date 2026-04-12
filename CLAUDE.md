@@ -29,14 +29,19 @@ ghn-map/
 ├── src/
 │   ├── map.js             ← Toàn bộ JS logic (state, render, controls, search, filters)
 │   └── style.css          ← Styles + responsive
+├── scripts/
+│   ├── split-geojson.py   ← Tách xa.geojson theo tỉnh (ma_tinh)
+│   └── enrich-population.py ← Enrich dân số GSO 2019 vào GeoJSON 63 tỉnh
 ├── data/
 │   ├── sau-sap-nhap/      ← GeoJSON simplified (34 tỉnh)
 │   │   ├── tinh.geojson   ← 34 features, 5MB
-│   │   └── xa.geojson     ← 3,321 features, 30MB
+│   │   ├── xa.geojson     ← 3,321 features, 30MB
+│   │   └── xa/            ← Per-province xa files (34 files, lazy load)
 │   ├── truoc-sap-nhap/    ← GeoJSON simplified (63 tỉnh)
-│   │   ├── tinh.geojson   ← 63 features, 2.4MB
-│   │   ├── huyen.geojson  ← 705 features, 4.7MB
-│   │   └── xa.geojson     ← 10,614 features, 15MB
+│   │   ├── tinh.geojson   ← 63 features, 2.4MB (enriched: dan_so, dtich_km2, matdo_km2)
+│   │   ├── huyen.geojson  ← 705 features, 4.7MB (enriched)
+│   │   ├── xa.geojson     ← 10,614 features, 15MB (enriched)
+│   │   └── xa/            ← Per-province xa files (63 files, lazy load)
 │   ├── sau-sap-nhap-raw/  ← Original unsimplified (GITIGNORED, local only ~700MB)
 │   ├── truoc-sap-nhap-raw/← Original unsimplified (GITIGNORED, local only ~316MB)
 │   ├── ward-data.csv      ← 10,661 tuyến bưu cục cover phường xã toàn quốc
@@ -91,13 +96,16 @@ ghn-map/
 - Drill-down: tỉnh → quận/huyện → phường/xã (chọn cấp hiển thị)
 - Tô màu vùng: tự động (theo quận/huyện hoặc tỉnh) hoặc theo bưu cục
 - 5 base map layers: Google Maps/Satellite/Hybrid, CartoDB, OSM
-- Popup on click (ESC để đóng)
+- Popup on click: hiện mã quốc gia + mã GHN (ESC để đóng)
 - Hover highlight
+- Lazy loading: cấp xã với filter tỉnh/vùng load per-province files thay vì full 15-30MB
 
 ### Heatmap
-- Mật độ dân cư (data sẵn trong GeoJSON sau sáp nhập)
+- Mật độ dân cư: cấp tỉnh dùng mật độ (người/km²), cấp huyện/xã dùng dân số tuyệt đối
+- Sau sáp nhập: data gốc từ gis.vn (chính xác cấp xã)
+- Trước sáp nhập: dân số tỉnh từ GSO 2019, phân bổ theo tỷ lệ diện tích xuống huyện/xã (ước tính)
+- Dynamic quantile breaks: tự tính 7 mức từ data hiển thị, legend cập nhật theo
 - Sản lượng (cần data)
-- Legend với thang đo + thống kê min/avg/max
 - Toggle bật/tắt
 
 ### Pin điểm vận hành
@@ -134,12 +142,13 @@ ghn-map/
 - **v2.2** (37fc76e): CLAUDE.md full rewrite
 - **v2.3** (659d554): Pin color toggle in controls panel
 - **v2.4** (9cfb735): Pin color mode dùng dropdown select (fix mobile)
+- **v2.5**: Dân số 63 tỉnh (GSO 2019), lazy load GeoJSON theo tỉnh, mã GHN trong popup, dynamic heatmap breaks
 
 ## GeoJSON Source
 - Tải từ gis.vn (host tại vn2000.vn/diachinh/)
 - Simplified bằng mapshaper (`dp 10-15%`): 277MB → 30MB
-- Sau sáp nhập: 34 tỉnh, dữ liệu có sẵn dân số + diện tích + mật độ
-- Trước sáp nhập: 63 tỉnh, không có dữ liệu dân số
+- Sau sáp nhập: 34 tỉnh, dữ liệu có sẵn dân số + diện tích + mật độ (từ gis.vn)
+- Trước sáp nhập: 63 tỉnh, dân số enriched từ GSO 2019 census (tỉnh chính xác, huyện/xã ước tính theo tỷ lệ diện tích)
 
 ## Ward matching
 - GHN dùng mã nội bộ (ghn_ward_id), GeoJSON dùng mã quốc gia (ma_xa)
@@ -152,7 +161,11 @@ ghn-map/
 - Blue: #00549A
 
 ## Lưu ý khi code
-- GeoJSON simplified nhưng vẫn nặng (xa.geojson 15-30MB) — tránh load nhiều layer cùng lúc
+- GeoJSON simplified nhưng vẫn nặng (xa.geojson 15-30MB) — dùng lazy load per-province khi filter active
+- Cache-busting: `DATA_VERSION` trong map.js, tăng khi update data files
+- Heatmap: `getHeatmapValue()` chọn metric theo level (tỉnh→mật độ, huyện/xã→dân số tuyệt đối)
+- `computeHeatmapBreaks()` tính quantile breaks dynamic từ data hiện tại
+- Province name normalize: `normalizeProvName()` xử lý "TP." prefix + unicode NFC
 - CSV load bằng PapaParse (CDN)
 - Tất cả logic nằm trong 1 file map.js — nếu quá lớn có thể tách module
 - State lưu trong object `state`, render functions: `renderLayer()`, `renderPostOffices()`
@@ -166,7 +179,8 @@ ghn-map/
 - [ ] Import AM data vào ward-data.csv (cần file GHN)
 - [ ] Import sản lượng lấy/giao (cần file GHN)
 - [ ] Import nhân viên chạy tuyến (cần file GHN)
-- [ ] Research mật độ dân cư cho bản đồ 63 tỉnh (GSO/WorldPop)
-- [ ] Tách GeoJSON theo tỉnh để lazy load (performance)
+- [x] Research mật độ dân cư cho bản đồ 63 tỉnh → Done: GSO 2019 census, phân bổ theo diện tích
+- [x] Tách GeoJSON theo tỉnh để lazy load → Done: 63+34 per-province xa files
+- [ ] Dân số thực cấp xã/huyện (hiện tại ước tính từ tỉnh, cần data GSO chi tiết hơn)
 - [ ] Export view thành ảnh/PDF
 - [ ] 38 xã hoàn toàn không match — cần GeoJSON mới hơn từ gis.vn

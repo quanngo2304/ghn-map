@@ -20,6 +20,9 @@ const state = {
     amColorMap: {},        // am_name -> color
     regions: {},           // shortname -> fullname
     provinceRegions: {},   // province_name -> region_shortname
+    ghnProvinceMap: {},    // ten_tinh -> ghn_province_id
+    ghnDistrictMap: {},    // "ten_huyen|ten_tinh" -> ghn_district_id
+    provinceCodeMap: {},   // ten_tinh -> ma_tinh (for lazy loading)
 };
 
 // GHN logo colors
@@ -93,12 +96,32 @@ let postOfficeLayer = null;
 // Data loading
 // ============================================================
 
+const DATA_VERSION = '2.5';
+
 async function loadGeoJSON(path) {
     if (state.geodata[path]) return state.geodata[path];
-    const res = await fetch(path);
+    const res = await fetch(path + '?v=' + DATA_VERSION);
     const data = await res.json();
     state.geodata[path] = data;
     return data;
+}
+
+// Load per-province GeoJSON files and merge into one FeatureCollection
+async function loadProvinceFiles(mode, level, provinceNames) {
+    const prefix = mode === 'sau' ? 'data/sau-sap-nhap' : 'data/truoc-sap-nhap';
+    const codes = provinceNames
+        .map(name => state.provinceCodeMap[name])
+        .filter(Boolean);
+    if (codes.length === 0) return null;
+
+    const collections = await Promise.all(
+        codes.map(code => loadGeoJSON(`${prefix}/${level}/${code}.geojson`).catch(() => null))
+    );
+
+    return {
+        type: 'FeatureCollection',
+        features: collections.filter(Boolean).flatMap(c => c.features),
+    };
 }
 
 async function loadCSV(path) {
@@ -113,12 +136,24 @@ async function loadCSV(path) {
     });
 }
 
+// Normalize province name for matching (handle unicode variants + prefixes)
+function normalizeProvName(name) {
+    return (name || '').normalize('NFC').replace(/^TP\.\s*/, '').trim();
+}
+
 async function loadWardData() {
     try {
         const rows = await loadCSV('data/ward-data.csv');
         rows.forEach(row => {
             if (row.ma_xa) state.wardData[row.ma_xa] = row;
             if (row.ghn_ward_id) state.wardDataByGhn[row.ghn_ward_id] = row;
+            if (row.ten_tinh && row.ghn_province_id) {
+                state.ghnProvinceMap[row.ten_tinh] = row.ghn_province_id;
+                state.ghnProvinceMap[normalizeProvName(row.ten_tinh)] = row.ghn_province_id;
+            }
+            if (row.ten_huyen && row.ghn_district_id) {
+                state.ghnDistrictMap[row.ten_huyen + '|' + row.ten_tinh] = row.ghn_district_id;
+            }
         });
     } catch (e) {
         console.log('Ward data not loaded:', e);
@@ -233,22 +268,59 @@ function getDefaultStyle(feature) {
     };
 }
 
-function getHeatmapStyle(feature) {
+// Get heatmap value for a feature based on current level
+function getHeatmapValue(feature) {
     const props = feature.properties;
-    let value = 0;
-    let colors, breaks;
-
     if (state.heatmap === 'dancu') {
-        value = props.matdo_km2 || props.dan_cu || 0;
-        colors = COLORS.heatmap.dancu;
-        breaks = [0, 100, 500, 1000, 3000, 5000, 10000];
+        // Province level: use density; district/ward: use absolute population
+        if (state.level === 'tinh') {
+            return props.matdo_km2 || props.dan_cu || 0;
+        }
+        return props.dan_so || 0;
     } else if (state.heatmap === 'sanluong') {
         const wd = state.wardData[props.ma_xa];
-        value = wd ? (parseInt(wd.sl_lay) || 0) + (parseInt(wd.sl_giao) || 0) : 0;
+        return wd ? (parseInt(wd.sl_lay) || 0) + (parseInt(wd.sl_giao) || 0) : 0;
+    }
+    return 0;
+}
+
+// Compute quantile breaks from current layer data
+function computeHeatmapBreaks(geojson) {
+    const values = [];
+    if (geojson) {
+        geojson.features.forEach(f => {
+            const val = getHeatmapValue(f);
+            if (val > 0) values.push(val);
+        });
+    }
+    if (values.length < 7) return null;
+    values.sort((a, b) => a - b);
+    const n = values.length;
+    return [
+        0,
+        values[Math.floor(n * 0.14)],
+        values[Math.floor(n * 0.28)],
+        values[Math.floor(n * 0.43)],
+        values[Math.floor(n * 0.57)],
+        values[Math.floor(n * 0.71)],
+        values[Math.floor(n * 0.86)],
+    ].map(v => Math.round(v));
+}
+
+// Cache current breaks (recalculated on each renderLayer)
+let currentHeatmapBreaks = null;
+
+function getHeatmapStyle(feature) {
+    let colors;
+    const value = getHeatmapValue(feature);
+
+    if (state.heatmap === 'dancu') {
+        colors = COLORS.heatmap.dancu;
+    } else if (state.heatmap === 'sanluong') {
         colors = COLORS.heatmap.sanluong;
-        breaks = [0, 50, 100, 200, 500, 1000, 2000];
     }
 
+    const breaks = currentHeatmapBreaks || [0, 100, 500, 1000, 3000, 5000, 10000];
     let colorIdx = 0;
     for (let i = 0; i < breaks.length; i++) {
         if (value >= breaks[i]) colorIdx = i;
@@ -281,14 +353,19 @@ function highlightStyle() {
 // Popup content
 // ============================================================
 
+function lookupGhnProvince(tenTinh) {
+    return state.ghnProvinceMap[tenTinh] || state.ghnProvinceMap[normalizeProvName(tenTinh)];
+}
+
 function buildPopup(props) {
     const level = props.cap;
     let html = '';
 
     if (level === 1) {
         // Tỉnh
+        const ghnProv = lookupGhnProvince(props.ten_tinh);
         html = `<h4>${props.ten_tinh}</h4><table>
-            <tr><td>Mã</td><td>${props.ma_tinh}</td></tr>
+            <tr><td>Mã</td><td>${props.ma_tinh}${ghnProv ? ' (GHN: ' + ghnProv + ')' : ''}</td></tr>
             <tr><td>Loại</td><td>${props.loai}</td></tr>
             ${props.dan_so ? `<tr><td>Dân số</td><td>${Number(props.dan_so).toLocaleString('vi')}</td></tr>` : ''}
             ${props.dtich_km2 ? `<tr><td>Diện tích</td><td>${Number(props.dtich_km2).toLocaleString('vi')} km²</td></tr>` : ''}
@@ -298,21 +375,28 @@ function buildPopup(props) {
         </table>`;
     } else if (level === 2 && props.ma_huyen) {
         // Quận huyện (trước sáp nhập)
+        const ghnDist = state.ghnDistrictMap[props.ten_huyen + '|' + props.ten_tinh];
+        const ghnProv = lookupGhnProvince(props.ten_tinh);
         html = `<h4>${props.ten_huyen}</h4><table>
-            <tr><td>Mã</td><td>${props.ma_huyen}</td></tr>
+            <tr><td>Mã</td><td>${props.ma_huyen}${ghnDist ? ' (GHN: ' + ghnDist + ')' : ''}</td></tr>
             <tr><td>Loại</td><td>${props.loai}</td></tr>
-            <tr><td>Tỉnh</td><td>${props.ten_tinh}</td></tr>
+            <tr><td>Tỉnh</td><td>${props.ten_tinh}${ghnProv ? ' (' + ghnProv + ')' : ''}</td></tr>
+            ${props.dan_so ? `<tr><td>Dân số</td><td>${Number(props.dan_so).toLocaleString('vi')}</td></tr>` : ''}
+            ${props.dtich_km2 ? `<tr><td>Diện tích</td><td>${Number(props.dtich_km2).toLocaleString('vi')} km²</td></tr>` : ''}
+            ${props.matdo_km2 ? `<tr><td>Mật độ</td><td>${Number(props.matdo_km2).toLocaleString('vi')} người/km²</td></tr>` : ''}
         </table>`;
     } else {
         // Phường xã
         const name = props.ten_xa || props.ten_huyen;
         const code = props.ma_xa || props.ma_huyen;
         const wd = state.wardData[code] || {};
+        const ghnWard = wd.ghn_ward_id;
+        const ghnProv = lookupGhnProvince(props.ten_tinh);
 
         html = `<h4>${name}</h4><table>
-            <tr><td>Mã</td><td>${code}</td></tr>
+            <tr><td>Mã</td><td>${code}${ghnWard ? ' (GHN: ' + ghnWard + ')' : ''}</td></tr>
             <tr><td>Loại</td><td>${props.loai}</td></tr>
-            <tr><td>Tỉnh</td><td>${props.ten_tinh}</td></tr>
+            <tr><td>Tỉnh</td><td>${props.ten_tinh}${ghnProv ? ' (' + ghnProv + ')' : ''}</td></tr>
             ${props.ten_huyen ? `<tr><td>Quận/Huyện</td><td>${props.ten_huyen}</td></tr>` : ''}
             ${props.dan_so ? `<tr><td>Dân số</td><td>${Number(props.dan_so).toLocaleString('vi')}</td></tr>` : ''}
             ${props.dtich_km2 ? `<tr><td>Diện tích</td><td>${Number(props.dtich_km2).toLocaleString('vi')} km²</td></tr>` : ''}
@@ -372,26 +456,49 @@ async function renderLayer() {
         document.getElementById('level-select').value = 'xa';
     }
 
-    const path = getDataPath();
-    const geojson = await loadGeoJSON(path);
-
-    // Filter by region and province
-    let filteredGeojson = geojson;
     const hasRegionFilter = state.filterRegions.length > 0;
     const hasProvinceFilter = state.filterProvinces.length > 0;
-    if (hasRegionFilter || hasProvinceFilter) {
-        filteredGeojson = {
-            type: 'FeatureCollection',
-            features: geojson.features.filter(f => {
-                const p = f.properties;
-                if (hasProvinceFilter) return state.filterProvinces.includes(p.ten_tinh);
-                if (hasRegionFilter) {
-                    const reg = getProvinceRegion(p.ten_tinh);
-                    return state.filterRegions.includes(reg);
-                }
-                return true;
-            }),
-        };
+
+    // Lazy load: for xa level with province/region filter, load per-province files
+    let filteredGeojson = null;
+    if (state.level === 'xa' && (hasProvinceFilter || hasRegionFilter)) {
+        let provinceNames;
+        if (hasProvinceFilter) {
+            provinceNames = state.filterProvinces;
+        } else {
+            provinceNames = Object.entries(state.provinceRegions)
+                .filter(([, reg]) => state.filterRegions.includes(reg))
+                .map(([name]) => name);
+        }
+        filteredGeojson = await loadProvinceFiles(state.mode, 'xa', provinceNames);
+    }
+
+    // Fallback: load full file and filter client-side
+    if (!filteredGeojson) {
+        const path = getDataPath();
+        const geojson = await loadGeoJSON(path);
+
+        if (hasRegionFilter || hasProvinceFilter) {
+            filteredGeojson = {
+                type: 'FeatureCollection',
+                features: geojson.features.filter(f => {
+                    const p = f.properties;
+                    if (hasProvinceFilter) return state.filterProvinces.includes(p.ten_tinh);
+                    if (hasRegionFilter) {
+                        const reg = getProvinceRegion(p.ten_tinh);
+                        return state.filterRegions.includes(reg);
+                    }
+                    return true;
+                }),
+            };
+        } else {
+            filteredGeojson = geojson;
+        }
+    }
+
+    // Compute dynamic heatmap breaks from current data
+    if (state.heatmap !== 'off') {
+        currentHeatmapBreaks = computeHeatmapBreaks(filteredGeojson);
     }
 
     activeLayer = L.geoJSON(filteredGeojson, {
@@ -526,33 +633,38 @@ function updateLegend() {
     }
 
     legend.style.display = 'block';
-    let colors, labels, title, unit;
+    let colors, title, unit;
 
     if (state.heatmap === 'dancu') {
         colors = COLORS.heatmap.dancu;
-        labels = ['0', '100', '500', '1K', '3K', '5K', '10K+'];
-        title = 'Mật độ dân cư';
-        unit = 'người/km²';
+        if (state.level === 'tinh') {
+            title = 'Mật độ dân cư';
+            unit = 'người/km²';
+        } else {
+            title = 'Dân số';
+            unit = 'người';
+        }
     } else {
         colors = COLORS.heatmap.sanluong;
-        labels = ['0', '50', '100', '200', '500', '1K', '2K+'];
         title = 'Sản lượng';
         unit = 'đơn/ngày';
     }
 
+    // Use dynamic breaks from current data
+    const breaks = currentHeatmapBreaks || [0, 100, 500, 1000, 3000, 5000, 10000];
+    function fmtBreak(v) {
+        if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+        if (v >= 1000) return (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1) + 'K';
+        return String(v);
+    }
+    const labels = breaks.map((b, i) => i === breaks.length - 1 ? fmtBreak(b) + '+' : fmtBreak(b));
+
     // Compute stats from current layer
     let min = Infinity, max = 0, sum = 0, count = 0;
-    const path = getDataPath();
-    const geojson = state.geodata[path];
-    if (geojson) {
-        geojson.features.forEach(f => {
-            let val = 0;
-            if (state.heatmap === 'dancu') {
-                val = f.properties.matdo_km2 || f.properties.dan_cu || 0;
-            } else {
-                const wd = state.wardData[f.properties.ma_xa];
-                val = wd ? (parseInt(wd.sl_lay) || 0) + (parseInt(wd.sl_giao) || 0) : 0;
-            }
+    if (activeLayer) {
+        activeLayer.eachLayer(l => {
+            if (!l.feature) return;
+            const val = getHeatmapValue(l.feature);
             if (val > 0) {
                 min = Math.min(min, val);
                 max = Math.max(max, val);
@@ -854,6 +966,13 @@ function toggleHeatmap(mode) {
     document.getElementById('btn-heatmap-off').classList.toggle('active', mode === 'off');
     document.getElementById('btn-heatmap-dancu').classList.toggle('active', mode === 'dancu');
     document.getElementById('btn-heatmap-sanluong').classList.toggle('active', mode === 'sanluong');
+
+    // Recalculate breaks from visible data
+    if (mode !== 'off' && activeLayer) {
+        const features = [];
+        activeLayer.eachLayer(l => { if (l.feature) features.push(l.feature); });
+        currentHeatmapBreaks = computeHeatmapBreaks({ features });
+    }
 
     if (activeLayer) {
         activeLayer.setStyle(getStyle);
@@ -1159,6 +1278,17 @@ async function init() {
             loadPostOffices(),
             loadRegions(),
         ]);
+
+        // Build province name → code mapping for lazy loading
+        const [tinhTruoc, tinhSau] = await Promise.all([
+            loadGeoJSON('data/truoc-sap-nhap/tinh.geojson'),
+            loadGeoJSON('data/sau-sap-nhap/tinh.geojson'),
+        ]);
+        [tinhTruoc, tinhSau].forEach(g => {
+            g.features.forEach(f => {
+                state.provinceCodeMap[f.properties.ten_tinh] = f.properties.ma_tinh;
+            });
+        });
 
         // Apply UI state
         document.getElementById('btn-sau').classList.toggle('active', state.mode === 'sau');

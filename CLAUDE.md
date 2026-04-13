@@ -120,28 +120,41 @@ ghn-map/
 
 ### Filter
 - Lọc vùng: 14 vùng GHN, cascade xuống tỉnh
-- Lọc tỉnh: 63 tỉnh, chọn nhiều, tìm kiếm, chọn tất cả/bỏ tất cả
-- Filter áp dụng lên cả bản đồ + pin
+- Lọc tỉnh: filter theo vùng đã chọn, chọn nhiều, tìm kiếm, chọn tất cả/bỏ tất cả
+- Filter áp dụng lên cả bản đồ + pin + danh sách BC thật trong quy hoạch
 
 ### Search
 - Tìm tất cả cấp: tỉnh, quận/huyện, phường/xã, bưu cục, AM
 - Checkbox chọn/bỏ từng kết quả + highlight vàng trên map
 - Chọn tất cả / Bỏ tất cả / Zoom đã chọn
+- Đặt đầu tiên trong menu controls
 
 ### View
-- Lưu view mặc định (localStorage): zoom, vị trí, tất cả filter/toggle
+- Lưu view mặc định (localStorage): zoom, vị trí, tất cả filter/toggle, trạng thái thu gọn sections
 - Reset view về mặc định
 
+### UI
+- Collapsible sections: Bản đồ, Bưu cục, Lọc vùng/tỉnh, Quy hoạch — click header thu/mở
+- Trạng thái thu gọn persist qua localStorage (Lưu view)
+- Brand colors: cam GHN #F26522 toàn bộ UI (nút active, hover, highlights)
+- Favicon + logo GHN từ ghn.vn
+
 ### Quy hoạch bưu cục (planning mode)
-- Toggle bật/tắt chế độ quy hoạch
-- Đặt bưu cục nháp: click map → form popup (tên, loại, ghi chú) → marker magenta diamond draggable
-- Gán xã: click xã polygon → toggle assignment vào bưu cục nháp đang chọn
-- Vẽ vùng phục vụ: bán kính (km) hoặc vẽ tay polygon
-- So sánh: đường dashed + label khoảng cách đến bưu cục gần nhất (turf.distance)
-- Danh sách bưu cục nháp: chọn/xóa/zoom, panel thông tin chi tiết
-- Persistence: localStorage auto-save, export 2 CSV (draft-post-offices + ward-reassignments)
+- Toggle bật/tắt chế độ quy hoạch, tắt → ward colors về nguyên trạng
+- **Đặt BC nháp**: click map → form popup (tên, loại, ghi chú) → marker magenta diamond draggable
+- **Target**: chọn BC nháp HOẶC BC thật (dropdown searchable, filter theo vùng/tỉnh)
+- **Gán xã**: click xã → toggle assign/unassign (hỗ trợ `_unassigned` marker cho xã gốc)
+- **Tô vùng**: kéo rectangle bulk-assign wards (paint mode, disable map drag)
+- **Vẽ vùng PV**: bán kính (km) hoặc vẽ tay polygon (chỉ draft)
+- **Color picker**: palette 18 màu cho mỗi target, hook vào `getDefaultStyle` qua `colorOverrides`
+- **Đổi AM**: datalist suggest AM từ vùng/tỉnh đang filter, hoặc gõ tay. AM override reflect trong pin colors
+- **Danh sách "ĐÃ CHỈNH"**: hiện BC thật có thay đổi (AM/xã +N/-N) với badge màu
+- **So sánh**: đường dashed + khoảng cách đến BC gần nhất (turf.distance)
+- **Ward count**: hiện `gốc +thêm -bỏ = tổng`, gán lại xã về BC gốc = restore (không count thêm)
+- **Action buttons** (Gán xã/Tô vùng/Vẽ vùng PV) nằm trong info panel per-target
+- **Persistence**: localStorage auto-save, export 3 CSV (draft-post-offices, ward-reassignments, am-changes)
 - Logic tách riêng trong `src/planning.js`, hooks tối thiểu trong map.js
-- Ward override: `state.planning.wardOverrides[ma_xa]` → ưu tiên hơn `wardData.buu_cuc_ma`
+- Ward override: `state.planning.wardOverrides[ma_xa]` → ưu tiên hơn `wardData.buu_cuc_ma` (chỉ khi planning active)
 
 ### Responsive
 - Mobile: controls panel thu gọn, nút Menu toggle
@@ -157,7 +170,8 @@ ghn-map/
 - **v2.4** (9cfb735): Pin color mode dùng dropdown select (fix mobile)
 - **v2.5** (6e57581): Dân số 63 tỉnh (GSO 2019), lazy load GeoJSON theo tỉnh, mã GHN trong popup, dynamic heatmap breaks
 - **v2.6** (e90d66f): Đường viền nhóm bưu cục (turf.union merge polygons cùng bưu cục)
-- **v3.0**: Quy hoạch bưu cục — đặt nháp, gán xã, vẽ vùng phục vụ, so sánh khoảng cách, export CSV
+- **v3.0** (6b1db41): Quy hoạch bưu cục — đặt nháp, gán xã, vẽ vùng phục vụ, so sánh khoảng cách, export CSV
+- **v3.1**: Brand GHN (favicon/logo/colors), collapsible menu, quy hoạch BC thật, tô vùng, color picker, đổi AM, danh sách đã chỉnh, fix ward toggle/count
 
 ## GeoJSON Source
 - Tải từ gis.vn (host tại vn2000.vn/diachinh/)
@@ -182,7 +196,11 @@ ghn-map/
 - `computeHeatmapBreaks()` tính quantile breaks dynamic từ data hiện tại
 - Province name normalize: `normalizeProvName()` xử lý "TP." prefix + unicode NFC
 - CSV load bằng PapaParse (CDN)
-- Tất cả logic nằm trong 1 file map.js — nếu quá lớn có thể tách module
+- Planning logic tách riêng `src/planning.js`, map.js chỉ có hooks tối thiểu
+- Ward override chỉ active khi `state.planning.active` — tắt quy hoạch = về nguyên trạng
+- `_unassigned` marker trong wardOverrides = xã bị bỏ khỏi BC gốc
+- `colorOverrides` hook trong `getDefaultStyle` → ưu tiên hơn `getGroupColor`
+- `amOverrides` hook trong `renderPostOffices` → override AM color cho pin
 - State lưu trong object `state`, render functions: `renderLayer()`, `renderPostOffices()`
 - Pin dùng DivIcon (không phải CircleMarker) để nằm trên GeoJSON layers
 - Mobile: floating legends ẩn (`display:none !important`), heatmap legend inline trong controls

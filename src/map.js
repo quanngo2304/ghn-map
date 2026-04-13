@@ -25,10 +25,13 @@ const state = {
     provinceCodeMap: {},   // ten_tinh -> ma_tinh (for lazy loading)
     planning: {
         active: false,
-        mode: null,            // 'place' | 'assign' | 'draw'
+        mode: null,            // 'place' | 'assign' | 'draw' | 'paint'
         draftPostOffices: [],
-        wardOverrides: {},     // ma_xa -> draft_id
-        selectedDraftId: null,
+        wardOverrides: {},     // ma_xa -> draft_id or warehouse_id
+        amOverrides: {},       // warehouse_id or draft_id -> new AM name
+        colorOverrides: {},    // draft_id or warehouse_id -> hex color
+        selectedTargetId: null,  // draft_id or real warehouse_id
+        selectedTargetType: 'draft', // 'draft' | 'real'
     },
 };
 
@@ -197,7 +200,7 @@ async function loadPostOffices() {
 
 const COLORS = {
     default: { fill: '#3498db', border: '#2980b9' },
-    hover: { fill: '#e74c3c', border: '#c0392b' },
+    hover: { fill: '#F26522', border: '#d4551a' },
     heatmap: {
         dancu: ['#ffffcc','#c7e9b4','#7fcdbb','#41b6c4','#1d91c0','#225ea8','#0c2c84'],
         sanluong: ['#fff5f0','#fee0d2','#fcbba1','#fc9272','#fb6a4a','#ef3b2c','#99000d'],
@@ -229,8 +232,12 @@ function getGroupColor(code) {
 
 // Build ma_xa -> warehouse_id map for coloring by buu cuc
 function getWarehouseForWard(ma_xa) {
-    // Planning override takes priority
-    if (state.planning.wardOverrides[ma_xa]) return state.planning.wardOverrides[ma_xa];
+    // Planning override takes priority (only when planning mode is active)
+    if (state.planning.active && ma_xa in state.planning.wardOverrides) {
+        const ov = state.planning.wardOverrides[ma_xa];
+        if (ov === '_unassigned') return null;
+        return ov;
+    }
     const wd = state.wardData[ma_xa];
     return wd ? wd.buu_cuc_ma : null;
 }
@@ -242,7 +249,7 @@ function getDefaultStyle(feature) {
     if (state.colorByGroup === 'buucuc' && props.ma_xa) {
         const wh = getWarehouseForWard(props.ma_xa);
         if (wh) {
-            const fill = getGroupColor('wh-' + wh);
+            const fill = state.planning.colorOverrides[wh] || getGroupColor('wh-' + wh);
             return {
                 fillColor: fill,
                 weight: 2.5,
@@ -432,7 +439,9 @@ function buildPopup(props) {
 
 function buildPostOfficePopup(po) {
     const cat = PIN_STYLES[po.warehouse_category] || PIN_STYLES.buu_cuc;
-    return `<h4>${cat.label}: ${po.warehouse_name}</h4><table>
+    const nameStartsWithLabel = po.warehouse_name && po.warehouse_name.startsWith(cat.label);
+    const title = nameStartsWithLabel ? po.warehouse_name : `${cat.label}: ${po.warehouse_name}`;
+    return `<h4>${title}</h4><table>
         <tr><td>Mã</td><td>${po.warehouse_id}</td></tr>
         <tr><td>Địa chỉ</td><td>${po.warehouse_address}</td></tr>
         ${po.area_manager_name ? `<tr><td>AM</td><td>${po.area_manager_name}</td></tr>` : ''}
@@ -634,8 +643,13 @@ function renderPostOffices() {
         const pinStyle = PIN_STYLES[cat] || PIN_STYLES.buu_cuc;
 
         let fillColor;
-        if (state.pinColorMode === 'am' && po.area_manager_name) {
-            fillColor = state.amColorMap[po.area_manager_name] || '#999';
+        const effectiveAM = (state.planning.active && state.planning.amOverrides[po.warehouse_id]) || po.area_manager_name;
+        if (state.pinColorMode === 'am' && effectiveAM) {
+            // Ensure override AM has a color in the map
+            if (effectiveAM && !state.amColorMap[effectiveAM]) {
+                state.amColorMap[effectiveAM] = AM_COLORS[Object.keys(state.amColorMap).length % AM_COLORS.length];
+            }
+            fillColor = state.amColorMap[effectiveAM] || '#999';
         } else {
             fillColor = pinStyle.color;
         }
@@ -968,11 +982,11 @@ function updateSearchHighlights() {
         const r = window._searchResults[idx];
         if (r.po) {
             layers.push(L.circleMarker([parseFloat(r.po.latitude), parseFloat(r.po.longitude)], {
-                radius: 10, fillColor: '#f1c40f', color: '#e74c3c', weight: 3, fillOpacity: 0.8,
+                radius: 10, fillColor: '#f1c40f', color: '#F26522', weight: 3, fillOpacity: 0.8,
             }).bindPopup(buildPostOfficePopup(r.po)));
         } else if (r.feature) {
             layers.push(L.geoJSON(r.feature, {
-                style: { fillColor: '#f1c40f', weight: 3, color: '#e74c3c', fillOpacity: 0.4 },
+                style: { fillColor: '#f1c40f', weight: 3, color: '#F26522', fillOpacity: 0.4 },
             }));
         }
     });
@@ -1068,6 +1082,16 @@ function closeInfo() {
     document.getElementById('info-panel').style.display = 'none';
 }
 
+function toggleSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('collapsed');
+    const header = el.previousElementSibling;
+    if (header && header.classList.contains('section-header')) {
+        header.textContent = header.textContent.replace(/[▾▸]/, el.classList.contains('collapsed') ? '▸' : '▾');
+    }
+}
+
 // ============================================================
 // Region filter
 // ============================================================
@@ -1161,10 +1185,15 @@ function buildProvinceFilter() {
     const geojson = state.geodata[path];
     if (!geojson) return;
 
-    const provinces = geojson.features
+    let provinces = geojson.features
         .map(f => f.properties.ten_tinh)
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b, 'vi'));
+
+    // Filter provinces by selected regions
+    if (state.filterRegions.length > 0) {
+        provinces = provinces.filter(p => state.filterRegions.includes(getProvinceRegion(p)));
+    }
 
     let html = `<div class="province-filter-actions">
         <a href="#" onclick="filterSelectAllProvinces(event)">Tất cả</a>
@@ -1245,6 +1274,12 @@ const DEFAULT_STATE = {
 };
 
 function saveView() {
+    // Save collapsed sections
+    const collapsedSections = [];
+    document.querySelectorAll('.section-body.collapsed').forEach(el => {
+        if (el.id) collapsedSections.push(el.id);
+    });
+
     const view = {
         mode: state.mode,
         level: state.level,
@@ -1257,6 +1292,7 @@ function saveView() {
         colorByGroup: state.colorByGroup,
         mapCenter: [map.getCenter().lat, map.getCenter().lng],
         mapZoom: map.getZoom(),
+        collapsedSections,
     };
     localStorage.setItem('ghn-map-view', JSON.stringify(view));
     alert('Đã lưu view mặc định');
@@ -1314,6 +1350,20 @@ function applyViewState(view) {
         huyenOption.textContent = 'Quận / Huyện';
     }
 
+    // Restore collapsed sections
+    if (view.collapsedSections) {
+        view.collapsedSections.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.add('collapsed');
+                const header = el.previousElementSibling;
+                if (header && header.classList.contains('section-header')) {
+                    header.textContent = header.textContent.replace('▾', '▸');
+                }
+            }
+        });
+    }
+
     // Re-render
     renderLayer();
     buildRegionFilter();
@@ -1344,6 +1394,20 @@ async function init() {
             state.colorByGroup = saved.colorByGroup || DEFAULT_STATE.colorByGroup;
             if (saved.mapCenter && saved.mapZoom) {
                 map.setView(saved.mapCenter, saved.mapZoom);
+            }
+
+            // Restore collapsed sections
+            if (saved.collapsedSections) {
+                saved.collapsedSections.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.classList.add('collapsed');
+                        const header = el.previousElementSibling;
+                        if (header && header.classList.contains('section-header')) {
+                            header.textContent = header.textContent.replace('▾', '▸');
+                        }
+                    }
+                });
             }
         }
 

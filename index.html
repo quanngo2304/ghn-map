@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GHN Map - Bản đồ vận hành</title>
+    <link rel="icon" href="public/favicon.png" type="image/png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="src/style.css" />
 </head>
@@ -15,49 +16,54 @@
 
     <!-- Controls Panel -->
     <div id="controls">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:2px solid #e74c3c;padding-bottom:6px;">
-            <h3 style="margin:0;border:none;padding:0">GHN Map</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:2px solid #F26522;padding-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:6px">
+                <img src="public/ghn-logo.png" alt="GHN" style="height:22px">
+                <h3 style="margin:0;border:none;padding:0">Map</h3>
+            </div>
             <div style="display:flex;gap:4px;">
                 <button class="view-btn" onclick="saveView()" title="Lưu view hiện tại">Lưu</button>
                 <button class="view-btn" onclick="resetView()" title="Reset về mặc định">Reset</button>
             </div>
         </div>
 
-        <!-- Toggle trước/sau sáp nhập -->
+        <!-- Tìm kiếm (đầu tiên) -->
         <div class="control-group">
-            <label>Ranh giới hành chính</label>
-            <div class="toggle-btn-group">
-                <button id="btn-sau" class="toggle-btn" onclick="switchMode('sau')">Sau sáp nhập (34)</button>
-                <button id="btn-truoc" class="toggle-btn active" onclick="switchMode('truoc')">Trước sáp nhập (63)</button>
-            </div>
+            <input type="text" id="search-input" placeholder="Tìm tỉnh, huyện, xã, bưu cục, AM..." oninput="handleSearch(this.value)" />
+            <div id="search-results"></div>
         </div>
 
-        <!-- Drill-down level -->
-        <div class="control-group">
-            <label>Hiển thị tới cấp</label>
-            <select id="level-select" onchange="changeLevel(this.value)">
-                <option value="tinh">Tỉnh / Thành phố</option>
-                <option value="huyen">Quận / Huyện</option>
-                <option value="xa">Phường / Xã</option>
-            </select>
-        </div>
-
-        <!-- Color by group -->
-        <div class="control-group">
-            <label>Tô màu vùng</label>
-            <div class="toggle-btn-group">
-                <button id="btn-color-auto" class="toggle-btn small active" onclick="switchColorGroup('auto')">Tự động</button>
-                <button id="btn-color-buucuc" class="toggle-btn small" onclick="switchColorGroup('buucuc')">Theo bưu cục</button>
-            </div>
-        </div>
-
-        <!-- Heatmap toggle -->
-        <div class="control-group">
-            <label>Heatmap</label>
-            <div class="toggle-btn-group">
-                <button id="btn-heatmap-off" class="toggle-btn small active" onclick="toggleHeatmap('off')">Tắt</button>
-                <button id="btn-heatmap-dancu" class="toggle-btn small" onclick="toggleHeatmap('dancu')">Mật độ dân cư</button>
-                <button id="btn-heatmap-sanluong" class="toggle-btn small" onclick="toggleHeatmap('sanluong')">Sản lượng</button>
+        <!-- Bản đồ -->
+        <div class="control-section">
+            <div class="section-header" onclick="toggleSection('map-section')">Bản đồ ▾</div>
+            <div class="section-body" id="map-section">
+                <div class="control-group">
+                    <div class="toggle-btn-group">
+                        <button id="btn-sau" class="toggle-btn" onclick="switchMode('sau')">Sau sáp nhập (34)</button>
+                        <button id="btn-truoc" class="toggle-btn active" onclick="switchMode('truoc')">Trước sáp nhập (63)</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <select id="level-select" onchange="changeLevel(this.value)" style="width:100%">
+                        <option value="tinh">Tỉnh / Thành phố</option>
+                        <option value="huyen">Quận / Huyện</option>
+                        <option value="xa">Phường / Xã</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <div class="toggle-btn-group">
+                        <button id="btn-color-auto" class="toggle-btn small active" onclick="switchColorGroup('auto')">Tự động</button>
+                        <button id="btn-color-buucuc" class="toggle-btn small" onclick="switchColorGroup('buucuc')">Theo bưu cục</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label style="font-size:11px">Heatmap</label>
+                    <div class="toggle-btn-group">
+                        <button id="btn-heatmap-off" class="toggle-btn small active" onclick="toggleHeatmap('off')">Tắt</button>
+                        <button id="btn-heatmap-dancu" class="toggle-btn small" onclick="toggleHeatmap('dancu')">Mật độ</button>
+                        <button id="btn-heatmap-sanluong" class="toggle-btn small" onclick="toggleHeatmap('sanluong')">Sản lượng</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -66,66 +72,61 @@
             <div id="mobile-legend-content"></div>
         </div>
 
-        <!-- Pin bưu cục toggle -->
-        <div class="control-group">
-            <label>
-                <input type="checkbox" id="chk-buucuc" onchange="togglePostOffices(this.checked)" checked />
-                Hiển thị bưu cục
-            </label>
-            <label style="margin-left:12px">
-                <input type="checkbox" id="chk-labels" onchange="toggleLabels(this.checked)" />
-                Hiện tên
-            </label>
-            <div style="margin-top:4px">
-                <label style="font-weight:400;font-size:12px">Màu pin:</label>
-                <select id="pin-color-select" onchange="switchPinColor(this.value)" style="margin-top:2px">
-                    <option value="category" selected>Theo loại</option>
-                    <option value="am">Theo AM</option>
-                </select>
+        <!-- Bưu cục -->
+        <div class="control-section">
+            <div class="section-header" onclick="toggleSection('po-section')">Bưu cục ▾</div>
+            <div class="section-body" id="po-section">
+                <div class="control-group" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <label style="margin:0"><input type="checkbox" id="chk-buucuc" onchange="togglePostOffices(this.checked)" checked /> Hiện pin</label>
+                    <label style="margin:0"><input type="checkbox" id="chk-labels" onchange="toggleLabels(this.checked)" /> Tên</label>
+                    <select id="pin-color-select" onchange="switchPinColor(this.value)" style="font-size:11px;padding:2px">
+                        <option value="category" selected>Màu theo loại</option>
+                        <option value="am">Màu theo AM</option>
+                    </select>
+                </div>
             </div>
         </div>
 
-        <!-- Region filter -->
-        <div class="control-group">
-            <label>Lọc vùng</label>
-            <div id="region-filter"></div>
-        </div>
-
-        <!-- Province filter -->
-        <div class="control-group">
-            <label>Lọc tỉnh/thành</label>
-            <div id="province-filter"></div>
-        </div>
-
-        <!-- Search -->
-        <div class="control-group">
-            <input type="text" id="search-input" placeholder="Tìm tỉnh, huyện, xã, bưu cục, AM..." oninput="handleSearch(this.value)" />
-            <div id="search-results"></div>
-        </div>
-
-        <!-- Planning -->
-        <div class="control-group" id="planning-section">
-            <label>Quy hoạch bưu cục</label>
-            <button id="btn-planning-toggle" class="toggle-btn" onclick="togglePlanningMode()">Bật quy hoạch</button>
-            <div id="planning-controls" style="display:none">
-                <div class="toggle-btn-group" style="margin-top:8px">
-                    <button id="btn-plan-place" class="toggle-btn" onclick="setPlanningMode('place')">Đặt BC</button>
-                    <button id="btn-plan-assign" class="toggle-btn" onclick="setPlanningMode('assign')">Gán xã</button>
-                    <button id="btn-plan-draw" class="toggle-btn" onclick="setPlanningMode('draw')">Vẽ vùng</button>
+        <!-- Lọc -->
+        <div class="control-section">
+            <div class="section-header" onclick="toggleSection('filter-section')">Lọc vùng / tỉnh ▾</div>
+            <div class="section-body" id="filter-section">
+                <div class="control-group">
+                    <label style="font-size:11px">Vùng</label>
+                    <div id="region-filter"></div>
                 </div>
-                <div id="planning-draft-list" style="margin-top:8px;max-height:150px;overflow-y:auto"></div>
-                <div id="planning-draft-info" style="margin-top:6px;display:none"></div>
-                <div id="planning-draw-controls" style="margin-top:6px;display:none">
-                    <label style="font-size:11px">Bán kính (km):</label>
-                    <div style="display:flex;gap:4px;align-items:center">
-                        <input type="number" id="planning-radius" value="3" min="0.5" max="50" step="0.5" style="width:60px;padding:2px 4px;font-size:12px">
-                        <button class="toggle-btn" onclick="drawServiceRadius()" style="font-size:11px;padding:2px 6px">Vẽ bán kính</button>
-                        <button class="toggle-btn" onclick="startDrawPolygon()" id="btn-draw-polygon" style="font-size:11px;padding:2px 6px">Vẽ tay</button>
+                <div class="control-group">
+                    <label style="font-size:11px">Tỉnh/thành</label>
+                    <div id="province-filter"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quy hoạch -->
+        <div class="control-section">
+            <div class="section-header" onclick="toggleSection('planning-section')">Quy hoạch ▾</div>
+            <div class="section-body" id="planning-section">
+                <div class="control-group">
+                    <button id="btn-planning-toggle" class="toggle-btn" onclick="togglePlanningMode()" style="width:100%">Bật quy hoạch</button>
+                    <div id="planning-controls" style="display:none">
+                        <div class="toggle-btn-group" style="margin-top:8px">
+                            <button id="btn-plan-place" class="toggle-btn" onclick="setPlanningMode('place')">Đặt BC</button>
+                        </div>
+                        <div id="planning-draft-list" style="margin-top:8px;max-height:200px;overflow-y:auto"></div>
+                        <div id="planning-draft-info" style="margin-top:6px;display:none"></div>
+                        <div id="planning-draw-controls" style="margin-top:6px;display:none">
+                            <label style="font-size:11px">Bán kính (km):</label>
+                            <div style="display:flex;gap:4px;align-items:center">
+                                <input type="number" id="planning-radius" value="3" min="0.5" max="50" step="0.5" style="width:60px;padding:2px 4px;font-size:12px">
+                                <button class="toggle-btn" onclick="drawServiceRadius()" style="font-size:11px;padding:2px 6px">Vẽ bán kính</button>
+                                <button class="toggle-btn" onclick="startDrawPolygon()" id="btn-draw-polygon" style="font-size:11px;padding:2px 6px">Vẽ tay</button>
+                            </div>
+                        </div>
+                        <div style="margin-top:8px;display:flex;gap:4px">
+                            <button class="toggle-btn" onclick="exportPlanningCSV()" style="font-size:11px;padding:2px 6px">Xuất CSV</button>
+                            <button class="toggle-btn" onclick="clearAllDrafts()" style="font-size:11px;padding:2px 6px;color:#F26522">Xóa tất cả</button>
+                        </div>
                     </div>
-                </div>
-                <div style="margin-top:8px;display:flex;gap:4px">
-                    <button class="toggle-btn" onclick="exportPlanningCSV()" style="font-size:11px;padding:2px 6px">Xuất CSV</button>
-                    <button class="toggle-btn" onclick="clearAllDrafts()" style="font-size:11px;padding:2px 6px;color:#e74c3c">Xóa tất cả</button>
                 </div>
             </div>
         </div>

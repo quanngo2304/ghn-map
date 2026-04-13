@@ -418,38 +418,7 @@ function buildTargetListUI() {
         html += '<div style="font-size:11px;color:#999;padding:4px;margin-bottom:4px">Chưa có BC nháp — dùng "Đặt BC"</div>';
     }
 
-    // Modified real POs in this session
-    const modifiedRealPOs = getModifiedRealPOs();
-    if (modifiedRealPOs.length > 0) {
-        html += '<div style="font-size:10px;font-weight:600;color:#F26522;margin:6px 0 2px">ĐÃ CHỈNH</div>';
-        html += modifiedRealPOs.map(po => {
-            const sel = po.warehouse_id === state.planning.selectedTargetId;
-            const color = state.planning.colorOverrides[po.warehouse_id] || '';
-            const changes = [];
-            if (state.planning.amOverrides[po.warehouse_id]) changes.push('AM');
-            // Wards added TO this PO (not originally here)
-            let added = 0, removed = 0;
-            Object.entries(state.planning.wardOverrides).forEach(([ma_xa, val]) => {
-                const wd = state.wardData[ma_xa];
-                const orig = wd ? wd.buu_cuc_ma : null;
-                if (val === po.warehouse_id && orig !== po.warehouse_id) added++;
-                if (orig === po.warehouse_id && val !== po.warehouse_id) removed++;
-            });
-            if (added > 0) changes.push(`<span style="color:#27ae60">+${added} xã</span>`);
-            if (removed > 0) changes.push(`<span style="color:#e74c3c">-${removed} xã</span>`);
-            return `
-                <div class="draft-item ${sel ? 'selected' : ''}" onclick="selectRealPO('${po.warehouse_id}')">
-                    ${color ? `<div class="draft-color" style="background:${color}"></div>` : ''}
-                    <div>
-                        <div style="font-weight:600;font-size:11px">${po.warehouse_name}</div>
-                        <div style="font-size:10px;color:#F26522">${changes.join(' · ')}</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    // Real PO — filtered + searchable
+    // Real PO search + list (always accessible at top)
     const filteredPOs = getFilteredRealPOs();
     const filterNote = state.filterRegions.length > 0 || state.filterProvinces.length > 0
         ? ` (${filteredPOs.length} BC)` : '';
@@ -457,7 +426,7 @@ function buildTargetListUI() {
         <div style="font-size:10px;font-weight:600;color:#888;margin:6px 0 2px">BƯU CỤC THẬT${filterNote}</div>
         <input type="text" id="real-po-search" placeholder="Tìm bưu cục..." oninput="filterRealPOList()"
                style="width:100%;padding:3px 4px;font-size:11px;border:1px solid #ccc;border-radius:3px;margin-bottom:3px">
-        <div id="real-po-options" style="max-height:100px;overflow-y:auto;border:1px solid #eee;border-radius:3px">
+        <div id="real-po-options" style="max-height:150px;overflow-y:auto;border:1px solid #eee;border-radius:3px">
             ${filteredPOs.map(po => {
                 const sel = po.warehouse_id === state.planning.selectedTargetId;
                 return `<div class="real-po-option draft-item ${sel ? 'selected' : ''}"
@@ -469,6 +438,39 @@ function buildTargetListUI() {
             ${filteredPOs.length === 0 ? '<div style="font-size:11px;color:#999;padding:4px">Lọc vùng/tỉnh để hiện BC</div>' : ''}
         </div>
     `;
+
+    // Modified real POs (below search, scrollable)
+    const modifiedRealPOs = getModifiedRealPOs();
+    if (modifiedRealPOs.length > 0) {
+        html += '<div style="font-size:10px;font-weight:600;color:#F26522;margin:6px 0 2px">ĐÃ CHỈNH (' + modifiedRealPOs.length + ')</div>';
+        const modifiedListHeight = _infoPanelCollapsed ? 300 : 150;
+        html += `<div style="max-height:${modifiedListHeight}px;overflow-y:auto">`;
+        html += modifiedRealPOs.map(po => {
+            const sel = po.warehouse_id === state.planning.selectedTargetId;
+            const color = state.planning.colorOverrides[po.warehouse_id] || '';
+            const changes = [];
+            if (state.planning.amOverrides[po.warehouse_id]) changes.push('AM');
+            let added = 0, removed = 0;
+            Object.entries(state.planning.wardOverrides).forEach(([ma_xa, val]) => {
+                const wd = state.wardData[ma_xa];
+                const orig = wd ? wd.buu_cuc_ma : null;
+                if (val === po.warehouse_id && orig !== po.warehouse_id) added++;
+                if (orig === po.warehouse_id && val !== po.warehouse_id) removed++;
+            });
+            if (added > 0) changes.push(`<span style="color:#27ae60">+${added}</span>`);
+            if (removed > 0) changes.push(`<span style="color:#e74c3c">-${removed}</span>`);
+            return `
+                <div class="draft-item ${sel ? 'selected' : ''}" onclick="selectRealPO('${po.warehouse_id}')">
+                    ${color ? `<div class="draft-color" style="background:${color}"></div>` : ''}
+                    <div>
+                        <div style="font-weight:600;font-size:11px">${po.warehouse_name}</div>
+                        <div style="font-size:10px;color:#F26522">${changes.join(' · ')}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        html += '</div>';
+    }
 
     container.innerHTML = html;
 }
@@ -508,12 +510,38 @@ function setAMOverride(targetId, amName) {
 // Target info panel
 // ============================================================
 
+let _infoPanelCollapsed = false;
+
+function toggleInfoPanel() {
+    _infoPanelCollapsed = !_infoPanelCollapsed;
+    // When collapsing info panel, expand draft list to see overview
+    const draftList = document.getElementById('planning-draft-list');
+    if (draftList) {
+        draftList.style.maxHeight = _infoPanelCollapsed ? '600px' : '400px';
+    }
+    updateTargetInfoPanel();
+}
+
 function updateTargetInfoPanel() {
     const panel = document.getElementById('planning-draft-info');
     if (!panel) return;
 
     const targetId = state.planning.selectedTargetId;
     if (!targetId) { panel.style.display = 'none'; return; }
+
+    // Collapsed mode — show only name + expand button
+    if (_infoPanelCollapsed) {
+        const name = getTargetName(targetId);
+        const color = state.planning.colorOverrides[targetId] || PLANNING_COLOR;
+        panel.style.display = 'block';
+        panel.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0">
+                <span style="font-weight:600;color:${color};font-size:11px">${name}</span>
+                <span onclick="toggleInfoPanel()" style="cursor:pointer;font-size:11px;color:#F26522" title="Mở chi tiết">Mở ▸</span>
+            </div>
+        `;
+        return;
+    }
 
     // Count ward changes: added (new assignments), removed (unassigned from original)
     let wardsAdded = 0, wardsRemoved = 0;
@@ -539,14 +567,14 @@ function updateTargetInfoPanel() {
     const color = state.planning.colorOverrides[targetId] || PLANNING_COLOR;
     const catLabels = { buu_cuc: 'Bưu Cục', kho_trung_chuyen: 'KTC', kho_chuyen_tiep: 'KCT', giao_hang_nang: 'GHN' };
 
-    let infoHtml = '';
+    let infoHtml = `<div style="display:flex;justify-content:flex-end"><span onclick="toggleInfoPanel()" style="cursor:pointer;font-size:12px;color:#888" title="Thu gọn">▾ Thu gọn</span></div>`;
 
     if (state.planning.selectedTargetType === 'draft') {
         const draft = state.planning.draftPostOffices.find(d => d.id === targetId);
         if (!draft) { panel.style.display = 'none'; return; }
 
         const nearest = findNearestPostOffice(draft.latitude, draft.longitude);
-        infoHtml = `
+        infoHtml += `
             <div style="font-weight:600;color:${color}">${draft.name} <span style="font-size:10px;color:#888">(nháp)</span></div>
             <div>Loại: ${catLabels[draft.category] || draft.category}</div>
             <div>Toạ độ: ${draft.latitude}, ${draft.longitude}</div>
@@ -563,7 +591,7 @@ function updateTargetInfoPanel() {
         const origWardCount = Object.values(state.wardData).filter(w => w.buu_cuc_ma === targetId).length;
         const currentTotal = origWardCount + wardsAdded - wardsRemoved;
 
-        infoHtml = `
+        infoHtml += `
             <div style="font-weight:600;color:${color}">${po.warehouse_name} <span style="font-size:10px;color:#888">(thật)</span></div>
             <div>Mã: ${po.warehouse_id}</div>
             <div>AM: ${originalAM}${amOverride ? ` → <b style="color:${PLANNING_COLOR}">${amOverride}</b>` : ''}</div>

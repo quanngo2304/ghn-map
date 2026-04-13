@@ -171,7 +171,8 @@ ghn-map/
 - **v2.5** (6e57581): Dân số 63 tỉnh (GSO 2019), lazy load GeoJSON theo tỉnh, mã GHN trong popup, dynamic heatmap breaks
 - **v2.6** (e90d66f): Đường viền nhóm bưu cục (turf.union merge polygons cùng bưu cục)
 - **v3.0** (6b1db41): Quy hoạch bưu cục — đặt nháp, gán xã, vẽ vùng phục vụ, so sánh khoảng cách, export CSV
-- **v3.1**: Brand GHN (favicon/logo/colors), collapsible menu, quy hoạch BC thật, tô vùng, color picker, đổi AM, danh sách đã chỉnh, fix ward toggle/count
+- **v3.1**: Brand GHN, collapsible menu, quy hoạch BC thật, tô vùng, color picker, đổi AM, danh sách đã chỉnh
+- **v3.2**: Panel rộng hơn (320px), thu gọn info panel quy hoạch, BC search luôn accessible, ĐÃ CHỈNH list mở rộng khi thu gọn, tỉnh filter theo vùng, fix ward count/popup
 
 ## GeoJSON Source
 - Tải từ gis.vn (host tại vn2000.vn/diachinh/)
